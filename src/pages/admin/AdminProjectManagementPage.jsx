@@ -8,7 +8,7 @@ import { PlusCircle, Search, Edit, Trash2, MapPin, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { GoogleMap, Marker, useLoadScript } from '@react-google-maps/api';
+import { GoogleMap, Marker, useLoadScript, Circle } from '@react-google-maps/api';
 
 // Modal para crear proyecto
 const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
@@ -20,6 +20,7 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
   const [selectedManager, setSelectedManager] = useState('');
   const [managers, setManagers] = useState([]);
   const [loadingManagers, setLoadingManagers] = useState(false);
+  const [radius, setRadius] = useState(100);
   const { toast } = useToast();
   const { isLoaded } = useLoadScript({ googleMapsApiKey: 'AIzaSyDxWwPaA-_LKw_lGzEP4-f9lmWIhecP-Uw' });
   const { fetchProjectManagers } = useAuth();
@@ -65,7 +66,8 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
       latitude: lat, 
       longitude: lon,
       status: 'Planning', 
-      manager: selectedManager 
+      manager: selectedManager,
+      radius
     });
     setProjectName('');
     setProjectDescription('');
@@ -73,6 +75,7 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
     setLatitude('');
     setLongitude('');
     setSelectedManager('');
+    setRadius(100);
     setIsOpen(false);
   };
 
@@ -137,11 +140,23 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
                 </GoogleMap>
               </div>
             )}
-            <div className="col-span-4">
-              <div className="p-3 bg-secondary/30 rounded-md text-sm text-muted-foreground">
-                <Globe size={16} className="inline mr-2" />
-                For now, please enter coordinates manually. Map integration will be added later.
-                The project radius for worker check-in is 100 meters by default.
+            <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-3">
+              <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
+                <Globe size={16} className="inline" />
+                Project radius for worker check-in (meters)
+              </Label>
+              <input
+                id="radius"
+                type="range"
+                min={50}
+                max={1000}
+                step={10}
+                value={radius}
+                onChange={e => setRadius(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+              <div className="text-xs text-muted-foreground text-right">
+                {radius} meters
               </div>
             </div>
           </div>
@@ -165,6 +180,7 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
   const [selectedManager, setSelectedManager] = useState('');
   const [managers, setManagers] = useState([]);
   const [loadingManagers, setLoadingManagers] = useState(false);
+  const [radius, setRadius] = useState(100);
   const { toast } = useToast();
   const { isLoaded } = useLoadScript({ googleMapsApiKey: 'AIzaSyDxWwPaA-_LKw_lGzEP4-f9lmWIhecP-Uw' });
   const { fetchProjectManagers } = useAuth();
@@ -177,6 +193,7 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
       setLatitude(project.latitude || '');
       setLongitude(project.longitude || '');
       setSelectedManager(project.manager || '');
+      setRadius(project.radius || 100);
     }
   }, [project]);
 
@@ -221,7 +238,8 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
       locationName, 
       latitude: lat, 
       longitude: lon,
-      manager: selectedManager 
+      manager: selectedManager,
+      radius
     });
     setIsOpen(false);
   };
@@ -283,15 +301,54 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
                   zoom={12}
                   onClick={handleMapClick}
                 >
-                  {latitude && longitude && <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />}
+                  {latitude && longitude && (
+                    <>
+                      <Marker
+                        position={{
+                          lat: parseFloat(latitude),
+                          lng: parseFloat(longitude),
+                        }}
+                      />
+                      <Circle
+                        center={{
+                          lat: parseFloat(latitude),
+                          lng: parseFloat(longitude),
+                        }}
+                        radius={radius}
+                        options={{
+                          fillColor: '#blue',
+                          fillOpacity: 0.2,
+                          strokeColor: '#007bff',
+                          strokeOpacity: 0.6,
+                          strokeWeight: 2,
+                          clickable: false,
+                          draggable: false,
+                          editable: false,
+                          visible: true,
+                        }}
+                      />
+                    </>
+                  )}
                 </GoogleMap>
               </div>
             )}
-            <div className="col-span-4">
-              <div className="p-3 bg-secondary/30 rounded-md text-sm text-muted-foreground">
-                <Globe size={16} className="inline mr-2" />
-                For now, please enter coordinates manually. Map integration will be added later.
-                The project radius for worker check-in is 100 meters by default.
+            <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-3">
+              <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
+                <Globe size={16} className="inline" />
+                Project radius for worker check-in (meters)
+              </Label>
+              <input
+                id="radius"
+                type="range"
+                min={50}
+                max={1000}
+                step={10}
+                value={radius}
+                onChange={e => setRadius(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+              <div className="text-xs text-muted-foreground text-right">
+                {radius} meters
               </div>
             </div>
           </div>
