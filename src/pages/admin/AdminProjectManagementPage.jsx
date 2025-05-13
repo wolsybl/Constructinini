@@ -8,7 +8,8 @@ import { PlusCircle, Search, Edit, Trash2, MapPin, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { GoogleMap, Marker, useLoadScript, Circle } from '@react-google-maps/api';
+import { Marker, Circle } from '@react-google-maps/api';
+import Maps from '@/lib/Maps';
 
 // Modal para crear proyecto
 const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
@@ -22,7 +23,6 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
   const [loadingManagers, setLoadingManagers] = useState(false);
   const [radius, setRadius] = useState(100);
   const { toast } = useToast();
-  const { isLoaded } = useLoadScript({ googleMapsApiKey: 'AIzaSyDxWwPaA-_LKw_lGzEP4-f9lmWIhecP-Uw' });
   const { fetchProjectManagers } = useAuth();
 
   useEffect(() => {
@@ -128,18 +128,16 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
                 </select>
               )}
             </div>
-            {isLoaded && (
               <div className="col-span-4 h-64">
-                <GoogleMap
+                <Maps
                   mapContainerStyle={{ width: '100%', height: '100%' }}
                   center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
                   zoom={12}
                   onClick={handleMapClick}
                 >
                   {latitude && longitude && <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />}
-                </GoogleMap>
+                </Maps>
               </div>
-            )}
             <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-3">
               <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
                 <Globe size={16} className="inline" />
@@ -182,7 +180,6 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
   const [loadingManagers, setLoadingManagers] = useState(false);
   const [radius, setRadius] = useState(100);
   const { toast } = useToast();
-  const { isLoaded } = useLoadScript({ googleMapsApiKey: 'AIzaSyDxWwPaA-_LKw_lGzEP4-f9lmWIhecP-Uw' });
   const { fetchProjectManagers } = useAuth();
 
   useEffect(() => {
@@ -293,9 +290,8 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
                 </select>
               )}
             </div>
-            {isLoaded && (
               <div className="col-span-4 h-64">
-                <GoogleMap
+                <Maps
                   mapContainerStyle={{ width: '100%', height: '100%' }}
                   center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
                   zoom={12}
@@ -303,20 +299,12 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
                 >
                   {latitude && longitude && (
                     <>
-                      <Marker
-                        position={{
-                          lat: parseFloat(latitude),
-                          lng: parseFloat(longitude),
-                        }}
-                      />
+                      <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
                       <Circle
-                        center={{
-                          lat: parseFloat(latitude),
-                          lng: parseFloat(longitude),
-                        }}
+                        center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
                         radius={radius}
                         options={{
-                          fillColor: '#blue',
+                          fillColor: '#007bff',
                           fillOpacity: 0.2,
                           strokeColor: '#007bff',
                           strokeOpacity: 0.6,
@@ -329,9 +317,8 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
                       />
                     </>
                   )}
-                </GoogleMap>
+                </Maps>
               </div>
-            )}
             <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-3">
               <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
                 <Globe size={16} className="inline" />
