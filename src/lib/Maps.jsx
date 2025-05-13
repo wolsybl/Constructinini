@@ -14,9 +14,12 @@ export default function Maps({
   children,
   mapContainerStyle = defaultContainerStyle,
   onClick,
+  onMapLoad,
+  mapId, // <-- agrega este prop
 }) {
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: MAPS_API_KEY,
+    libraries: ['marker'],
   });
 
   if (loadError) return <div>Error loading maps</div>;
@@ -28,6 +31,8 @@ export default function Maps({
       center={center}
       zoom={zoom}
       onClick={onClick}
+      onLoad={onMapLoad}
+      mapId={mapId} // <-- pásalo aquí
     >
       {children}
     </GoogleMap>

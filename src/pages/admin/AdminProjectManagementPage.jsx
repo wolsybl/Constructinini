@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,8 +8,9 @@ import { PlusCircle, Search, Edit, Trash2, MapPin, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { Marker, Circle } from '@react-google-maps/api';
+import { Circle } from '@react-google-maps/api';
 import Maps from '@/lib/Maps';
+import { AdvancedMarker } from '@/components/AdvancedMarker';
 
 // Modal para crear proyecto
 const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
@@ -25,6 +26,9 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
   const { toast } = useToast();
   const { fetchProjectManagers } = useAuth();
 
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
+
   useEffect(() => {
     const loadManagers = async () => {
       setLoadingManagers(true);
@@ -39,6 +43,37 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
     };
     loadManagers();
   }, [fetchProjectManagers, toast]);
+
+  useEffect(() => {
+    if (
+      !mapRef.current ||
+      !window.google ||
+      !window.google.maps ||
+      !window.google.maps.marker ||
+      !latitude ||
+      !longitude
+    )
+      return;
+
+    const position = { lat: parseFloat(latitude), lng: parseFloat(longitude) };
+
+    if (markerRef.current) {
+      markerRef.current.position = position;
+    } else {
+      markerRef.current = new window.google.maps.marker.AdvancedMarkerElement({
+        map: mapRef.current,
+        position,
+        title: 'Project location',
+      });
+    }
+
+    return () => {
+      if (markerRef.current) {
+        markerRef.current.map = null;
+        markerRef.current = null;
+      }
+    };
+  }, [latitude, longitude]);
 
   const handleMapClick = (e) => {
     setLatitude(e.latLng.lat());
@@ -128,16 +163,34 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
                 </select>
               )}
             </div>
-              <div className="col-span-4 h-64">
-                <Maps
-                  mapContainerStyle={{ width: '100%', height: '100%' }}
-                  center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
-                  zoom={12}
-                  onClick={handleMapClick}
-                >
-                  {latitude && longitude && <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />}
-                </Maps>
-              </div>
+            <div className="col-span-4 h-64">
+              <Maps
+                mapContainerStyle={{ width: '100%', height: '100%' }}
+                center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
+                zoom={12}
+                onClick={handleMapClick}
+                onMapLoad={map => { mapRef.current = map; }}
+                mapId="5795a66c547e6becbb38a780"
+              >
+                {latitude && longitude && (
+                  <Circle
+                    center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
+                    radius={radius}
+                    options={{
+                      fillColor: '#007bff',
+                      fillOpacity: 0.2,
+                      strokeColor: '#007bff',
+                      strokeOpacity: 0.6,
+                      strokeWeight: 2,
+                      clickable: false,
+                      draggable: false,
+                      editable: false,
+                      visible: true,
+                    }}
+                  />
+                )}
+              </Maps>
+            </div>
             <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-3">
               <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
                 <Globe size={16} className="inline" />
@@ -290,35 +343,34 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
                 </select>
               )}
             </div>
-              <div className="col-span-4 h-64">
-                <Maps
-                  mapContainerStyle={{ width: '100%', height: '100%' }}
-                  center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
-                  zoom={12}
-                  onClick={handleMapClick}
-                >
-                  {latitude && longitude && (
-                    <>
-                      <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
-                      <Circle
-                        center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
-                        radius={radius}
-                        options={{
-                          fillColor: '#007bff',
-                          fillOpacity: 0.2,
-                          strokeColor: '#007bff',
-                          strokeOpacity: 0.6,
-                          strokeWeight: 2,
-                          clickable: false,
-                          draggable: false,
-                          editable: false,
-                          visible: true,
-                        }}
-                      />
-                    </>
-                  )}
-                </Maps>
-              </div>
+            <div className="col-span-4 h-64">
+              <Maps
+                mapContainerStyle={{ width: '100%', height: '100%' }}
+                center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
+                zoom={12}
+                onClick={handleMapClick}
+                onMapLoad={map => { mapRef.current = map; }}
+                mapId="5795a66c547e6be9430d3ae7"
+              >
+                {latitude && longitude && (
+                  <Circle
+                    center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
+                    radius={radius}
+                    options={{
+                      fillColor: '#007bff',
+                      fillOpacity: 0.2,
+                      strokeColor: '#007bff',
+                      strokeOpacity: 0.6,
+                      strokeWeight: 2,
+                      clickable: false,
+                      draggable: false,
+                      editable: false,
+                      visible: true,
+                    }}
+                  />
+                )}
+              </Maps>
+            </div>
             <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-3">
               <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
                 <Globe size={16} className="inline" />
