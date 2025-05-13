@@ -83,37 +83,39 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
           <DialogDescription>Fill in the details below to create a new construction project.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="projectName" className="text-right text-muted-foreground">Name</Label>
-              <Input id="projectName" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="col-span-3 bg-background/70" placeholder="e.g., Skyscraper Alpha" />
+          <div className="flex flex-col gap-2 py-2">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="projectName" className="text-muted-foreground">Name</Label>
+              <Input id="projectName" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="bg-background/70" placeholder="e.g., Skyscraper Alpha" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="projectDescription" className="text-right text-muted-foreground">Description</Label>
-              <Input id="projectDescription" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} className="col-span-3 bg-background/70" placeholder="Brief project overview" />
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="projectDescription" className="text-muted-foreground">Description</Label>
+              <Input id="projectDescription" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} className="bg-background/70" placeholder="Brief project overview" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="locationName" className="text-right text-muted-foreground">Location Name</Label>
-              <Input id="locationName" value={locationName} onChange={(e) => setLocationName(e.target.value)} className="col-span-3 bg-background/70" placeholder="e.g., City Center Plaza" />
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="locationName" className="text-muted-foreground">Location Name</Label>
+              <Input id="locationName" value={locationName} onChange={(e) => setLocationName(e.target.value)} className="bg-background/70" placeholder="e.g., City Center Plaza" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="latitude" className="text-right text-muted-foreground">Latitude</Label>
-              <Input id="latitude" type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} className="col-span-3 bg-background/70" placeholder="e.g., 40.7128" />
+            <div className="flex flex-row gap-4">
+              <div className="flex flex-col gap-1 flex-1">
+                <Label htmlFor="latitude" className="text-muted-foreground">Latitude</Label>
+                <Input id="latitude" type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} className="bg-background/70" placeholder="e.g., 40.7128" />
+              </div>
+              <div className="flex flex-col gap-1 flex-1">
+                <Label htmlFor="longitude" className="text-muted-foreground">Longitude</Label>
+                <Input id="longitude" type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} className="bg-background/70" placeholder="e.g., -74.0060" />
+              </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="longitude" className="text-right text-muted-foreground">Longitude</Label>
-              <Input id="longitude" type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} className="col-span-3 bg-background/70" placeholder="e.g., -74.0060" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="manager" className="text-right text-muted-foreground">Manager</Label>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="manager" className="text-muted-foreground">Manager</Label>
               {loadingManagers ? (
-                <p className="col-span-3 text-muted-foreground">Loading managers...</p>
+                <p className="text-muted-foreground">Loading managers...</p>
               ) : (
                 <select 
                   id="manager" 
                   value={selectedManager} 
                   onChange={(e) => setSelectedManager(e.target.value)} 
-                  className="col-span-3 bg-background/70 p-2 rounded-md border border-border"
+                  className="bg-background/70 p-2 rounded-md border border-border"
                 >
                   <option value="" disabled>Select a manager</option>
                   {managers.map(manager => (
@@ -126,8 +128,8 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
               <div className="col-span-4 h-64">
                 <GoogleMap
                   mapContainerStyle={{ width: '100%', height: '100%' }}
-                  center={{ lat: parseFloat(latitude) || 0, lng: parseFloat(longitude) || 0 }}
-                  zoom={10}
+                  center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
+                  zoom={12}
                   onClick={handleMapClick}
                 >
                   {latitude && longitude && <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />}

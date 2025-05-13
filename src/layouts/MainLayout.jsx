@@ -21,7 +21,7 @@
               <div className="flex items-center justify-between h-16">
                 <Link to="/" className="flex items-center space-x-2">
                   <Building size={28} />
-                  <span className="text-2xl font-bold tracking-tight">ProjectHub</span>
+                  <span className="text-2xl font-bold tracking-tight">Constructini</span>
                 </Link>
                 <div className="flex items-center space-x-4">
                   {user && (
