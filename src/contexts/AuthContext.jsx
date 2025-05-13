@@ -16,7 +16,9 @@ import {
   fetchAllTasks, 
   createTask as createTaskService, 
   fetchAllProjectAssignments, 
-  assignWorker as assignWorkerService 
+  assignWorker as assignWorkerService,
+  updateProjectService,
+  deleteProjectService
 } from '@/services/dataService';
 
 const AuthContext = createContext(null);
@@ -223,11 +225,9 @@ const AuthProviderInternal = ({ children }) => {
   const updateProject = async (updatedProject) => {
     setLoading(true);
     try {
-      // Si tienes un servicio para actualizar en el backend, llama aquí:
-      // await updateProjectService(updatedProject);
-
+      const updated = await updateProjectService(updatedProject); // Actualiza en la base de datos
       setProjects(prev =>
-        prev.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject } : p)
+        prev.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject, ...updated } : p)
       );
       toast({ title: "Project Updated", description: `${updatedProject.name} has been updated.` });
     } catch (error) {
@@ -240,9 +240,7 @@ const AuthProviderInternal = ({ children }) => {
   const deleteProject = async (projectId) => {
     setLoading(true);
     try {
-      // Si tienes un servicio para borrar en el backend, llama aquí:
-      // await deleteProjectService(projectId);
-
+      await deleteProjectService(projectId); // Llama al backend primero
       setProjects(prev => prev.filter(p => p.id !== projectId));
       toast({ title: "Project Deleted", description: "The project has been deleted." });
     } catch (error) {
