@@ -220,6 +220,23 @@ const AuthProviderInternal = ({ children }) => {
     }
   };
   
+  const updateProject = async (updatedProject) => {
+    setLoading(true);
+    try {
+      // Si tienes un servicio para actualizar en el backend, llama aquí:
+      // await updateProjectService(updatedProject);
+
+      setProjects(prev =>
+        prev.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject } : p)
+      );
+      toast({ title: "Project Updated", description: `${updatedProject.name} has been updated.` });
+    } catch (error) {
+      handleError(error, "Project Update Failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getProjectById = (projectId) => projects.find(p => p.id === projectId);
 
   const refreshAllUsers = useCallback(async () => {
@@ -319,6 +336,7 @@ const AuthProviderInternal = ({ children }) => {
     user, allUsers, loading, projects, tasks, projectAssignments,
     login, logout, addUser, addProject, addTask, assignWorkerToProject,
     getProjectById,
+    updateProject,
     fetchProjects: useCallback(async () => {
       setLoading(true);
       try { setProjects(await fetchAllProjects()); }
