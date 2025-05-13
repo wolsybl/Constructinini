@@ -237,6 +237,21 @@ const AuthProviderInternal = ({ children }) => {
     }
   };
 
+  const deleteProject = async (projectId) => {
+    setLoading(true);
+    try {
+      // Si tienes un servicio para borrar en el backend, llama aquí:
+      // await deleteProjectService(projectId);
+
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+      toast({ title: "Project Deleted", description: "The project has been deleted." });
+    } catch (error) {
+      handleError(error, "Project Deletion Failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getProjectById = (projectId) => projects.find(p => p.id === projectId);
 
   const refreshAllUsers = useCallback(async () => {
@@ -337,6 +352,7 @@ const AuthProviderInternal = ({ children }) => {
     login, logout, addUser, addProject, addTask, assignWorkerToProject,
     getProjectById,
     updateProject,
+    deleteProject,
     fetchProjects: useCallback(async () => {
       setLoading(true);
       try { setProjects(await fetchAllProjects()); }

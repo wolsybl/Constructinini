@@ -306,7 +306,7 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
 };
 
 export default function AdminProjectManagementPage() {
-  const { projects, addProject, updateProject } = useAuth();
+  const { projects, addProject, updateProject, deleteProject } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState(null);
@@ -325,6 +325,12 @@ export default function AdminProjectManagementPage() {
   const handleProjectUpdate = (updatedProject) => {
     updateProject(updatedProject);
     setIsEditModalOpen(false);
+  };
+
+  const handleDeleteClick = (projectId) => {
+    if (window.confirm("Are you sure you want to delete this project?")) {
+      deleteProject(projectId);
+    }
   };
 
   return (
@@ -406,7 +412,12 @@ export default function AdminProjectManagementPage() {
                    <Button variant="ghost" size="sm" className="hover:bg-primary/10 text-primary" onClick={() => handleEditClick(project)}>
                     <Edit size={16} className="mr-1" /> Edit
                   </Button>
-                  <Button variant="ghost" size="sm" className="hover:bg-destructive/10 text-destructive">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="hover:bg-destructive/10 text-destructive"
+                    onClick={() => handleDeleteClick(project.id)}
+                  >
                     <Trash2 size={16} className="mr-1" /> Delete
                   </Button>
                 </CardFooter>
