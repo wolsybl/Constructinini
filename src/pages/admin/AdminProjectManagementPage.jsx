@@ -135,7 +135,26 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
                   zoom={12}
                   onClick={handleMapClick}
                 >
-                  {latitude && longitude && <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />}
+                  {latitude && longitude && (
+                    <>
+                      <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
+                      <Circle
+                        center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
+                        radius={radius}
+                        options={{
+                          fillColor: '#007bff',
+                          fillOpacity: 0.2,
+                          strokeColor: '#007bff',
+                          strokeOpacity: 0.6,
+                          strokeWeight: 2,
+                          clickable: false,
+                          draggable: false,
+                          editable: false,
+                          visible: true,
+                        }}
+                      />
+                    </>
+                  )}
                 </Maps>
               </div>
             <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-3">
