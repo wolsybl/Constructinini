@@ -3,13 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { PlusCircle, Search, Edit, Trash2, MapPin, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { GoogleMap, Marker, useLoadScript } from '@react-google-maps/api';
+import { Marker, Circle } from '@react-google-maps/api';
+import Maps from '@/lib/Maps';
 
+// Modal para crear proyecto
 const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
@@ -18,21 +20,21 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
   const [longitude, setLongitude] = useState('');
   const [selectedManager, setSelectedManager] = useState('');
   const [managers, setManagers] = useState([]);
-  const [loadingManagers, setLoadingManagers] = useState(false); // Add loading state for managers
+  const [loadingManagers, setLoadingManagers] = useState(false);
+  const [radius, setRadius] = useState(100);
   const { toast } = useToast();
-  const { isLoaded } = useLoadScript({ googleMapsApiKey: 'AIzaSyDxWwPaA-_LKw_lGzEP4-f9lmWIhecP-Uw' });
-  const { fetchProjectManagers } = useAuth(); // Use the function to fetch project managers
+  const { fetchProjectManagers } = useAuth();
 
   useEffect(() => {
     const loadManagers = async () => {
-      setLoadingManagers(true); // Set loading state
+      setLoadingManagers(true);
       try {
-        const managersList = await fetchProjectManagers(); // Fetch only project managers
+        const managersList = await fetchProjectManagers();
         setManagers(managersList);
       } catch (error) {
         toast({ variant: "destructive", title: "Error", description: "Failed to load project managers." });
       } finally {
-        setLoadingManagers(false); // Reset loading state
+        setLoadingManagers(false);
       }
     };
     loadManagers();
@@ -64,7 +66,8 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
       latitude: lat, 
       longitude: lon,
       status: 'Planning', 
-      manager: selectedManager 
+      manager: selectedManager,
+      radius
     });
     setProjectName('');
     setProjectDescription('');
@@ -72,6 +75,7 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
     setLatitude('');
     setLongitude('');
     setSelectedManager('');
+    setRadius(100);
     setIsOpen(false);
   };
 
@@ -83,37 +87,39 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
           <DialogDescription>Fill in the details below to create a new construction project.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="projectName" className="text-right text-muted-foreground">Name</Label>
-              <Input id="projectName" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="col-span-3 bg-background/70" placeholder="e.g., Skyscraper Alpha" />
+          <div className="flex flex-col gap-4 py-4">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="projectName" className="text-muted-foreground">Name</Label>
+              <Input id="projectName" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="bg-background/70" placeholder="e.g., Skyscraper Alpha" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="projectDescription" className="text-right text-muted-foreground">Description</Label>
-              <Input id="projectDescription" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} className="col-span-3 bg-background/70" placeholder="Brief project overview" />
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="projectDescription" className="text-muted-foreground">Description</Label>
+              <Input id="projectDescription" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} className="bg-background/70" placeholder="Brief project overview" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="locationName" className="text-right text-muted-foreground">Location Name</Label>
-              <Input id="locationName" value={locationName} onChange={(e) => setLocationName(e.target.value)} className="col-span-3 bg-background/70" placeholder="e.g., City Center Plaza" />
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="locationName" className="text-muted-foreground">Location Name</Label>
+              <Input id="locationName" value={locationName} onChange={(e) => setLocationName(e.target.value)} className="bg-background/70" placeholder="e.g., City Center Plaza" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="latitude" className="text-right text-muted-foreground">Latitude</Label>
-              <Input id="latitude" type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} className="col-span-3 bg-background/70" placeholder="e.g., 40.7128" />
+            <div className="flex flex-row gap-4">
+              <div className="flex flex-col gap-1 flex-1">
+                <Label htmlFor="latitude" className="text-muted-foreground">Latitude</Label>
+                <Input id="latitude" type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} className="bg-background/70" placeholder="e.g., 40.7128" />
+              </div>
+              <div className="flex flex-col gap-1 flex-1">
+                <Label htmlFor="longitude" className="text-muted-foreground">Longitude</Label>
+                <Input id="longitude" type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} className="bg-background/70" placeholder="e.g., -74.0060" />
+              </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="longitude" className="text-right text-muted-foreground">Longitude</Label>
-              <Input id="longitude" type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} className="col-span-3 bg-background/70" placeholder="e.g., -74.0060" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="manager" className="text-right text-muted-foreground">Manager</Label>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="manager" className="text-muted-foreground">Manager</Label>
               {loadingManagers ? (
-                <p className="col-span-3 text-muted-foreground">Loading managers...</p>
+                <p className="text-muted-foreground">Loading managers...</p>
               ) : (
                 <select 
                   id="manager" 
                   value={selectedManager} 
                   onChange={(e) => setSelectedManager(e.target.value)} 
-                  className="col-span-3 bg-background/70 p-2 rounded-md border border-border"
+                  className="bg-background/70 p-2 rounded-md border border-border"
                 >
                   <option value="" disabled>Select a manager</option>
                   {managers.map(manager => (
@@ -122,24 +128,54 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
                 </select>
               )}
             </div>
-            {isLoaded && (
-              <div className="col-span-4 h-64">
-                <GoogleMap
-                  mapContainerStyle={{ width: '100%', height: '100%' }}
-                  center={{ lat: parseFloat(latitude) || 0, lng: parseFloat(longitude) || 0 }}
-                  zoom={10}
-                  onClick={handleMapClick}
-                >
-                  {latitude && longitude && <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />}
-                </GoogleMap>
+            <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-3">
+              <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
+                <Globe size={16} className="inline" />
+                Project radius for worker check-in (meters)
+              </Label>
+              <input
+                id="radius"
+                type="range"
+                min={50}
+                max={1000}
+                step={10}
+                value={radius}
+                onChange={e => setRadius(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+              <div className="text-xs text-muted-foreground text-right">
+                {radius} meters
               </div>
-            )}
-            <div className="col-span-4">
-              <div className="p-3 bg-secondary/30 rounded-md text-sm text-muted-foreground">
-                <Globe size={16} className="inline mr-2" />
-                For now, please enter coordinates manually. Map integration will be added later.
-                The project radius for worker check-in is 100 meters by default.
-              </div>
+            </div>
+            <div className="col-span-4 h-64">
+              <Maps
+                mapContainerStyle={{ width: '100%', height: '100%' }}
+                center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
+                zoom={12}
+                onClick={handleMapClick}
+                mapId="5795a66c547e6becbb38a780"
+              >
+                {latitude && longitude && (
+                  <>
+                    <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
+                    <Circle
+                      center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
+                      radius={radius}
+                      options={{
+                        fillColor: '#007bff',
+                        fillOpacity: 0.2,
+                        strokeColor: '#007bff',
+                        strokeOpacity: 0.6,
+                        strokeWeight: 2,
+                        clickable: false,
+                        draggable: false,
+                        editable: false,
+                        visible: true,
+                      }}
+                    />
+                  </>
+                )}
+              </Maps>
             </div>
           </div>
           <DialogFooter>
@@ -152,15 +188,215 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
   );
 };
 
+// Modal para editar proyecto
+const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
+  const [projectName, setProjectName] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
+  const [locationName, setLocationName] = useState('');
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+  const [selectedManager, setSelectedManager] = useState('');
+  const [managers, setManagers] = useState([]);
+  const [loadingManagers, setLoadingManagers] = useState(false);
+  const [radius, setRadius] = useState(100);
+  const { toast } = useToast();
+  const { fetchProjectManagers } = useAuth();
+
+  useEffect(() => {
+    if (project) {
+      setProjectName(project.name || '');
+      setProjectDescription(project.description || '');
+      setLocationName(project.locationName || '');
+      setLatitude(project.latitude || '');
+      setLongitude(project.longitude || '');
+      setSelectedManager(project.manager || '');
+      setRadius(project.radius || 100);
+    }
+  }, [project]);
+
+  useEffect(() => {
+    const loadManagers = async () => {
+      setLoadingManagers(true);
+      try {
+        const managersList = await fetchProjectManagers();
+        setManagers(managersList);
+      } catch (error) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to load project managers." });
+      } finally {
+        setLoadingManagers(false);
+      }
+    };
+    loadManagers();
+  }, [fetchProjectManagers, toast]);
+
+  const handleMapClick = (e) => {
+    setLatitude(e.latLng.lat());
+    setLongitude(e.latLng.lng());
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!projectName || !locationName || !latitude || !longitude || !selectedManager) {
+      toast({ variant: "destructive", title: "Error", description: "Please fill all required fields." });
+      return;
+    }
+    const lat = parseFloat(latitude);
+    const lon = parseFloat(longitude);
+
+    if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      toast({ variant: "destructive", title: "Invalid Coordinates", description: "Latitude must be between -90 and 90. Longitude must be between -180 and 180." });
+      return;
+    }
+
+    onProjectUpdate({ 
+      ...project,
+      name: projectName, 
+      description: projectDescription, 
+      locationName, 
+      latitude: lat, 
+      longitude: lon,
+      manager: selectedManager,
+      radius
+    });
+    setIsOpen(false);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="sm:max-w-[525px] bg-card glassmorphism-card">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary">Edit Project</DialogTitle>
+          <DialogDescription>Modify the details below and save changes.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="flex flex-col gap-4 py-4">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="editProjectName" className="text-muted-foreground">Name</Label>
+              <Input id="editProjectName" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="bg-background/70" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="editProjectDescription" className="text-muted-foreground">Description</Label>
+              <Input id="editProjectDescription" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} className="bg-background/70" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="editLocationName" className="text-muted-foreground">Location Name</Label>
+              <Input id="editLocationName" value={locationName} onChange={(e) => setLocationName(e.target.value)} className="bg-background/70" />
+            </div>
+            <div className="flex flex-row gap-4">
+              <div className="flex flex-col gap-1 flex-1">
+                <Label htmlFor="editLatitude" className="text-muted-foreground">Latitude</Label>
+                <Input id="editLatitude" type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} className="bg-background/70" />
+              </div>
+              <div className="flex flex-col gap-1 flex-1">
+                <Label htmlFor="editLongitude" className="text-muted-foreground">Longitude</Label>
+                <Input id="editLongitude" type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} className="bg-background/70" />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="editManager" className="text-muted-foreground">Manager</Label>
+              {loadingManagers ? (
+                <p className="text-muted-foreground">Loading managers...</p>
+              ) : (
+                <select
+                  id="editManager"
+                  value={selectedManager}
+                  onChange={(e) => setSelectedManager(e.target.value)}
+                  className="bg-background/70 p-2 rounded-md border border-border"
+                >
+                  <option value="" disabled>Select a manager</option>
+                  {managers.map(manager => (
+                    <option key={manager.id} value={manager.name}>{manager.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-3">
+              <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
+                <Globe size={16} className="inline" />
+                Project radius for worker check-in (meters)
+              </Label>
+              <input
+                id="radius"
+                type="range"
+                min={50}
+                max={1000}
+                step={10}
+                value={radius}
+                onChange={e => setRadius(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+              <div className="text-xs text-muted-foreground text-right">
+                {radius} meters
+              </div>
+            </div>
+            <div className="col-span-4 h-64">
+              <Maps
+                mapContainerStyle={{ width: '100%', height: '100%' }}
+                center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
+                zoom={12}
+                onClick={handleMapClick}
+                mapId="5795a66c547e6becbb38a780"
+              >
+                {latitude && longitude && (
+                  <>
+                    <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
+                    <Circle
+                      center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
+                      radius={radius}
+                      options={{
+                        fillColor: '#007bff',
+                        fillOpacity: 0.2,
+                        strokeColor: '#007bff',
+                        strokeOpacity: 0.6,
+                        strokeWeight: 2,
+                        clickable: false,
+                        draggable: false,
+                        editable: false,
+                        visible: true,
+                      }}
+                    />
+                  </>
+                )}
+              </Maps>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="bg-secondary/50 hover:bg-secondary/80">Cancel</Button>
+            <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">Save Changes</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 export default function AdminProjectManagementPage() {
-  const { projects, addProject } = useAuth();
+  const { projects, addProject, updateProject, deleteProject } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [projectToEdit, setProjectToEdit] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredProjects = projects.filter(project => 
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     project.locationName.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleEditClick = (project) => {
+    setProjectToEdit(project);
+    setIsEditModalOpen(true);
+  };
+
+  const handleProjectUpdate = (updatedProject) => {
+    updateProject(updatedProject);
+    setIsEditModalOpen(false);
+  };
+
+  const handleDeleteClick = (projectId) => {
+    if (window.confirm("Are you sure you want to delete this project?")) {
+      deleteProject(projectId);
+    }
+  };
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
@@ -170,7 +406,7 @@ export default function AdminProjectManagementPage() {
         transition={{ duration: 0.5 }}
         className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4"
       >
-        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary">
+        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-gray-600">
           Project Management (Admin)
         </h1>
         <Button onClick={() => setIsModalOpen(true)} className="bg-accent hover:bg-accent/90 text-accent-foreground">
@@ -179,6 +415,7 @@ export default function AdminProjectManagementPage() {
       </motion.div>
 
       <CreateProjectModal isOpen={isModalOpen} setIsOpen={setIsModalOpen} onProjectCreate={addProject} />
+      <EditProjectModal isOpen={isEditModalOpen} setIsOpen={setIsEditModalOpen} project={projectToEdit} onProjectUpdate={handleProjectUpdate} />
 
       <motion.div
         initial={{ opacity: 0 }}
@@ -237,10 +474,15 @@ export default function AdminProjectManagementPage() {
                    <p className="text-sm text-muted-foreground mt-1">(Radius: {project.radius}m)</p>
                 </CardContent>
                 <CardFooter className="border-t border-border/20 flex justify-end space-x-2 pt-4">
-                   <Button variant="ghost" size="sm" className="hover:bg-primary/10 text-primary">
+                   <Button variant="ghost" size="sm" className="hover:bg-primary/10 text-primary" onClick={() => handleEditClick(project)}>
                     <Edit size={16} className="mr-1" /> Edit
                   </Button>
-                  <Button variant="ghost" size="sm" className="hover:bg-destructive/10 text-destructive">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="hover:bg-destructive/10 text-destructive"
+                    onClick={() => handleDeleteClick(project.id)}
+                  >
                     <Trash2 size={16} className="mr-1" /> Delete
                   </Button>
                 </CardFooter>

@@ -16,7 +16,9 @@ import {
   fetchAllTasks, 
   createTask as createTaskService, 
   fetchAllProjectAssignments, 
-  assignWorker as assignWorkerService 
+  assignWorker as assignWorkerService,
+  updateProjectService,
+  deleteProjectService
 } from '@/services/dataService';
 
 const AuthContext = createContext(null);
@@ -220,6 +222,34 @@ const AuthProviderInternal = ({ children }) => {
     }
   };
   
+  const updateProject = async (updatedProject) => {
+    setLoading(true);
+    try {
+      const updated = await updateProjectService(updatedProject); // Actualiza en la base de datos
+      setProjects(prev =>
+        prev.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject, ...updated } : p)
+      );
+      toast({ title: "Project Updated", description: `${updatedProject.name} has been updated.` });
+    } catch (error) {
+      handleError(error, "Project Update Failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteProject = async (projectId) => {
+    setLoading(true);
+    try {
+      await deleteProjectService(projectId); // Llama al backend primero
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+      toast({ title: "Project Deleted", description: "The project has been deleted." });
+    } catch (error) {
+      handleError(error, "Project Deletion Failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getProjectById = (projectId) => projects.find(p => p.id === projectId);
 
   const refreshAllUsers = useCallback(async () => {
@@ -319,6 +349,8 @@ const AuthProviderInternal = ({ children }) => {
     user, allUsers, loading, projects, tasks, projectAssignments,
     login, logout, addUser, addProject, addTask, assignWorkerToProject,
     getProjectById,
+    updateProject,
+    deleteProject,
     fetchProjects: useCallback(async () => {
       setLoading(true);
       try { setProjects(await fetchAllProjects()); }
