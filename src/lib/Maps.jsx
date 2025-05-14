@@ -17,6 +17,7 @@ export default function Maps({
 }) {
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: MAPS_API_KEY,
+    libraries: ["places"],
   });
 
   if (loadError) return <div>Error loading maps</div>;

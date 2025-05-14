@@ -128,35 +128,6 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
                 </select>
               )}
             </div>
-              <div className="col-span-4 h-64">
-                <Maps
-                  mapContainerStyle={{ width: '100%', height: '100%' }}
-                  center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
-                  zoom={12}
-                  onClick={handleMapClick}
-                >
-                  {latitude && longitude && (
-                    <>
-                      <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
-                      <Circle
-                        center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
-                        radius={radius}
-                        options={{
-                          fillColor: '#007bff',
-                          fillOpacity: 0.2,
-                          strokeColor: '#007bff',
-                          strokeOpacity: 0.6,
-                          strokeWeight: 2,
-                          clickable: false,
-                          draggable: false,
-                          editable: false,
-                          visible: true,
-                        }}
-                      />
-                    </>
-                  )}
-                </Maps>
-              </div>
             <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-3">
               <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
                 <Globe size={16} className="inline" />
@@ -175,6 +146,36 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
               <div className="text-xs text-muted-foreground text-right">
                 {radius} meters
               </div>
+            </div>
+            <div className="col-span-4 h-64">
+              <Maps
+                mapContainerStyle={{ width: '100%', height: '100%' }}
+                center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
+                zoom={12}
+                onClick={handleMapClick}
+                mapId="5795a66c547e6becbb38a780"
+              >
+                {latitude && longitude && (
+                  <>
+                    <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
+                    <Circle
+                      center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
+                      radius={radius}
+                      options={{
+                        fillColor: '#007bff',
+                        fillOpacity: 0.2,
+                        strokeColor: '#007bff',
+                        strokeOpacity: 0.6,
+                        strokeWeight: 2,
+                        clickable: false,
+                        draggable: false,
+                        editable: false,
+                        visible: true,
+                      }}
+                    />
+                  </>
+                )}
+              </Maps>
             </div>
           </div>
           <DialogFooter>
@@ -309,35 +310,6 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
                 </select>
               )}
             </div>
-              <div className="col-span-4 h-64">
-                <Maps
-                  mapContainerStyle={{ width: '100%', height: '100%' }}
-                  center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
-                  zoom={12}
-                  onClick={handleMapClick}
-                >
-                  {latitude && longitude && (
-                    <>
-                      <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
-                      <Circle
-                        center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
-                        radius={radius}
-                        options={{
-                          fillColor: '#007bff',
-                          fillOpacity: 0.2,
-                          strokeColor: '#007bff',
-                          strokeOpacity: 0.6,
-                          strokeWeight: 2,
-                          clickable: false,
-                          draggable: false,
-                          editable: false,
-                          visible: true,
-                        }}
-                      />
-                    </>
-                  )}
-                </Maps>
-              </div>
             <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-3">
               <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
                 <Globe size={16} className="inline" />
@@ -356,6 +328,36 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
               <div className="text-xs text-muted-foreground text-right">
                 {radius} meters
               </div>
+            </div>
+            <div className="col-span-4 h-64">
+              <Maps
+                mapContainerStyle={{ width: '100%', height: '100%' }}
+                center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
+                zoom={12}
+                onClick={handleMapClick}
+                mapId="5795a66c547e6becbb38a780"
+              >
+                {latitude && longitude && (
+                  <>
+                    <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
+                    <Circle
+                      center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
+                      radius={radius}
+                      options={{
+                        fillColor: '#007bff',
+                        fillOpacity: 0.2,
+                        strokeColor: '#007bff',
+                        strokeOpacity: 0.6,
+                        strokeWeight: 2,
+                        clickable: false,
+                        draggable: false,
+                        editable: false,
+                        visible: true,
+                      }}
+                    />
+                  </>
+                )}
+              </Maps>
             </div>
           </div>
           <DialogFooter>
