@@ -8,14 +8,17 @@ import { fetchActivityLogs } from '@/services/logService'; // Import the refacto
 import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 
 export default function AdminDashboardPage() {
-  const { getActivityLogs } = useAuth(); // Get the function from AuthContext
-  const [activityLogs, setActivityLogs] = useState([]); // State for activity logs
+  const { getActivityLogs, users, projects, tasks } = useAuth(); // Add users, projects, and tasks
+  const [activityLogs, setActivityLogs] = useState([]);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [activeProjects, setActiveProjects] = useState(0);
+  const [completedTasks, setCompletedTasks] = useState(0);
 
   useEffect(() => {
     const loadActivityLogs = async () => {
       try {
-        const logs = await fetchActivityLogs(getActivityLogs); // Pass the function to fetchActivityLogs
-        console.log("Fetched Activity Logs:", logs); // Debugging log
+        const logs = await fetchActivityLogs(getActivityLogs);
+        console.log("Fetched Activity Logs:", logs);
         setActivityLogs(logs);
       } catch (error) {
         console.error("Error fetching activity logs:", error);
@@ -25,10 +28,41 @@ export default function AdminDashboardPage() {
     loadActivityLogs();
   }, [getActivityLogs]);
 
+  useEffect(() => {
+    // Calculate total users
+    setTotalUsers(users?.length || 0);
+
+    // Calculate active projects
+    const active = projects?.filter(project => project.status === 'Planning').length || 0;
+    setActiveProjects(active);
+
+    // Calculate completed tasks
+    const completed = tasks?.filter(task => task.status === 'Completed').length || 0;
+    setCompletedTasks(completed);
+  }, [users, projects, tasks]);
+
   const stats = [
-    { title: "Total Users", value: "150", icon: <Users className="h-6 w-6 text-primary" />, color: "text-primary", link: "/admin/users" },
-    { title: "Active Projects", value: "25", icon: <Briefcase className="h-6 w-6 text-tertiary" />, color: "text-tertiary", link: "/admin/projects" },
-    { title: "Tasks Completed", value: "1200", icon: <BarChart3 className="h-6 w-6 text-accent" />, color: "text-accent", link: "#" },
+    { 
+      title: "Total Users", 
+      value: totalUsers.toString(), 
+      icon: <Users className="h-6 w-6 text-primary" />, 
+      color: "text-primary", 
+      link: "/admin/users" 
+    },
+    { 
+      title: "Active Projects", 
+      value: activeProjects.toString(), 
+      icon: <Briefcase className="h-6 w-6 text-tertiary" />, 
+      color: "text-tertiary", 
+      link: "/admin/projects" 
+    },
+    { 
+      title: "Tasks Completed", 
+      value: completedTasks.toString(), 
+      icon: <BarChart3 className="h-6 w-6 text-accent" />, 
+      color: "text-accent", 
+      link: "#" 
+    },
   ];
 
   const managementLinks = [

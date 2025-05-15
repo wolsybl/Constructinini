@@ -115,7 +115,7 @@ export default function WorkerManagementPage() {
         transition={{ duration: 0.5 }}
         className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4"
       >
-        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary">
+        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-gray-400">
           Worker Management
         </h1>
       
