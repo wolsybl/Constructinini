@@ -60,19 +60,19 @@ const AuthProviderInternal = ({ children }) => {
         fetchAllTasks(),
         fetchAllProjectAssignments(),
       ];
+      
       if (user.role === 'admin') {
         dataPromises.push(fetchAllUsersAdminService());
       }
 
       const [fetchedProjects, fetchedTasks, fetchedAssignments, fetchedUsers] = await Promise.all(dataPromises);
 
-      setProjects(fetchedProjects || []);
-      setTasks(fetchedTasks || []);
-      setProjectAssignments(fetchedAssignments || []);
-      if (user.role === 'admin') {
-        setAllUsers(fetchedUsers || []);
-      } else {
-        setAllUsers([]);
+      setProjects(fetchedProjects?.filter(p => p !== null) || []);
+      setTasks(fetchedTasks?.filter(t => t !== null) || []);
+      setProjectAssignments(fetchedAssignments?.filter(a => a !== null) || []);
+      
+      if (user.role === 'admin' && fetchedUsers) {
+        setAllUsers(fetchedUsers.filter(u => u !== null) || []);
       }
     } catch (error) {
       handleError(error, "Error loading initial data");
@@ -345,9 +345,44 @@ const AuthProviderInternal = ({ children }) => {
     }
   }, []);
 
+  const refreshDashboardData = useCallback(async () => {
+    if (!user || user.role !== 'admin') return;
+    
+    setLoading(true);
+    try {
+      const [
+        updatedUsers,
+        updatedProjects,
+        updatedTasks
+      ] = await Promise.all([
+        fetchAllUsersAdminService(),
+        fetchAllProjects(),
+        fetchAllTasks()
+      ]);
+
+      setAllUsers(updatedUsers || []);
+      setProjects(updatedProjects || []);
+      setTasks(updatedTasks || []);
+    } catch (error) {
+      handleError(error, "Error refreshing dashboard data");
+    } finally {
+      setLoading(false);
+    }
+  }, [user, handleError]);
+
   const value = {
-    user, allUsers, loading, projects, tasks, projectAssignments,
-    login, logout, addUser, addProject, addTask, assignWorkerToProject,
+    user,
+    allUsers,
+    loading,
+    projects,
+    tasks,
+    projectAssignments,
+    login,
+    logout,
+    addUser,
+    addProject,
+    addTask,
+    assignWorkerToProject,
     getProjectById,
     updateProject,
     deleteProject,
@@ -369,11 +404,19 @@ const AuthProviderInternal = ({ children }) => {
       catch (e) { handleError(e, "Error fetching assignments"); }
       finally { setLoading(false); }
     }, [handleError]),
-    fetchAllUsers: refreshAllUsers, // Expose refreshAllUsers
+    fetchAllUsers: refreshAllUsers,
     fetchProjectManagers,
     fetchAttendanceStatus,
     getActivityLogs,
     fetchDashboardStats,
+    refreshDashboardData,
+    users: allUsers,
+    getActiveProjects: useCallback(() => 
+      projects.filter(project => project.status === 'Active'),
+    [projects]),
+    getCompletedTasks: useCallback(() => 
+      tasks.filter(task => task.status === 'Completed'),
+    [tasks]),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

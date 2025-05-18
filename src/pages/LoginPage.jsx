@@ -40,7 +40,7 @@
                 >
                   <Building size={48} />
                 </motion.div>
-                <CardTitle className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary">
+                <CardTitle className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-gray-400">
                   Consstructini
                 </CardTitle>
                 <CardDescription className="text-muted-foreground pt-1">

@@ -81,13 +81,13 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[525px] bg-card glassmorphism-card">
+      <DialogContent className="sm:max-w-[525px] bg-card glassmorphism-card max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary">Create New Project</DialogTitle>
           <DialogDescription>Fill in the details below to create a new construction project.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-4 py-4">
+          <div className="flex flex-col gap-3 py-3">
             <div className="flex flex-col gap-1">
               <Label htmlFor="projectName" className="text-muted-foreground">Name</Label>
               <Input id="projectName" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="bg-background/70" placeholder="e.g., Skyscraper Alpha" />
@@ -100,7 +100,7 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
               <Label htmlFor="locationName" className="text-muted-foreground">Location Name</Label>
               <Input id="locationName" value={locationName} onChange={(e) => setLocationName(e.target.value)} className="bg-background/70" placeholder="e.g., City Center Plaza" />
             </div>
-            <div className="flex flex-row gap-4">
+            <div className="flex flex-row gap-3">
               <div className="flex flex-col gap-1 flex-1">
                 <Label htmlFor="latitude" className="text-muted-foreground">Latitude</Label>
                 <Input id="latitude" type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} className="bg-background/70" placeholder="e.g., 40.7128" />
