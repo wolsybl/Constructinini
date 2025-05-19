@@ -141,6 +141,12 @@ export default function ProjectManagerDashboardPage() {
                   >
                     <span>{project.name}</span>
                     <span className="ml-2 font-semibold text-primary">{project.progress ?? 0}% Complete</span>
+                    <Link
+                      to={`/project_manager/projects/${project.id}/view`}
+                      className="ml-4 text-xs underline text-accent hover:text-accent-foreground"
+                    >
+                      View Details
+                    </Link>
                   </li>
                 ))}
             </ul>

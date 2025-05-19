@@ -1,5 +1,4 @@
-
-    import React, { useState } from 'react';
+import React, { useState } from 'react';
     import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
@@ -23,6 +22,10 @@
       
       const handleManageTasks = (projectId) => {
         navigate(`/project_manager/tasks/${projectId}`);
+      };
+
+      const handleViewDetails = (projectId) => {
+        navigate(`/project_manager/projects/${projectId}/view`);
       };
 
 
@@ -96,10 +99,20 @@
                       <p className="text-sm flex items-center"><Users size={14} className="mr-1 text-tertiary" /> <span className="font-semibold">Team Size:</span> {project.teamSize || 0} workers</p>
                     </CardContent>
                     <CardFooter className="p-4 border-t border-border/20 flex flex-wrap justify-end gap-2 pt-4">
-                       <Button variant="outline" size="sm" className="hover:bg-primary/10 text-primary border-primary/50">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewDetails(project.id)}
+                        className="hover:bg-primary/10 text-primary border-primary/50"
+                      >
                         <Eye size={16} className="mr-1" /> View Details
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleManageTasks(project.id)} className="hover:bg-tertiary/10 text-tertiary border-tertiary/50">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleManageTasks(project.id)}
+                        className="hover:bg-tertiary/10 text-tertiary border-tertiary/50"
+                      >
                         <ListPlus size={16} className="mr-1" /> Manage Tasks
                       </Button>
                     </CardFooter>
@@ -111,4 +124,3 @@
         </div>
       );
     }
-  
