@@ -74,6 +74,21 @@ const AuthProviderInternal = ({ children }) => {
       if (user.role === 'admin' && fetchedUsers) {
         setAllUsers(fetchedUsers.filter(u => u !== null) || []);
       }
+
+      // Si tus proyectos ya traen progress, no necesitas esto.
+      // Si no, puedes calcularlo así (ejemplo):
+      const projectsWithProgress = (fetchedProjects || []).map(project => {
+        // Si ya existe project.progress, úsalo. Si no, calcula un dummy.
+        if (typeof project.progress === 'numeric') return project;
+        // Ejemplo: calcula progreso por tareas completadas
+        const projectTasks = (fetchedTasks || []).filter(t => t.projectId === project.id);
+        const completed = projectTasks.filter(t => t.status === 'Completed').length;
+        const total = projectTasks.length;
+        const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+        return { ...project, progress };
+      });
+
+      setProjects(projectsWithProgress.filter(p => p !== null));
     } catch (error) {
       handleError(error, "Error loading initial data");
     } finally {
