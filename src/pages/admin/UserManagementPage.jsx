@@ -17,10 +17,12 @@ const CreateUserModal = ({ isOpen, setIsOpen, onUserCreate }) => {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('worker');
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const { toast } = useToast();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMsg('');
     if (!name || !email || !password || !role) {
       toast({ variant: "destructive", title: "Error", description: "Please fill all required fields." });
       return;
@@ -29,14 +31,22 @@ const CreateUserModal = ({ isOpen, setIsOpen, onUserCreate }) => {
       toast({ variant: "destructive", title: "Password Too Short", description: "Password must be at least 6 characters long." });
       return;
     }
-    const success = onUserCreate({ name, email, password, role });
-    if (success) {
-      setName('');
-      setEmail('');
-      setPassword('');
-      setRole('worker');
-      setShowPassword(false);
-      setIsOpen(false);
+    try {
+      const success = await onUserCreate({ name, email, password, role });
+      if (success) {
+        setName('');
+        setEmail('');
+        setPassword('');
+        setRole('worker');
+        setShowPassword(false);
+        setIsOpen(false);
+      }
+    } catch (err) {
+      if (err.message && err.message.includes('already exists')) {
+        setErrorMsg('A user with this email already exists.');
+      } else {
+        setErrorMsg('An error occurred while creating the user.');
+      }
     }
   };
 
@@ -93,6 +103,9 @@ const CreateUserModal = ({ isOpen, setIsOpen, onUserCreate }) => {
               </Select>
             </div>
           </div>
+          {errorMsg && (
+            <div className="text-red-500 text-sm mb-2 text-center">{errorMsg}</div>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="bg-secondary/50 hover:bg-secondary/80">Cancel</Button>
             <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">Create User</Button>
@@ -155,7 +168,7 @@ const EditUserModal = ({ isOpen, setIsOpen, user, onUserUpdate }) => {
 };
 
 export default function UserManagementPage() {
-  const { allUsers, addUser, fetchAllUsers } = useAuth(); // Add fetchAllUsers to refresh the list
+  const { allUsers, addUser, fetchAllUsers } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -182,6 +195,14 @@ export default function UserManagementPage() {
     }
   };
 
+  const handleCreateUser = async (userData) => {
+    const success = await addUser(userData);
+    if (success) {
+      await fetchAllUsers(); // Fuerza refresco inmediato
+    }
+    return success;
+  };
+
   const filteredUsers = allUsers.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -204,7 +225,7 @@ export default function UserManagementPage() {
         </Button>
       </motion.div>
 
-      <CreateUserModal isOpen={isModalOpen} setIsOpen={setIsModalOpen} onUserCreate={addUser} />
+      <CreateUserModal isOpen={isModalOpen} setIsOpen={setIsModalOpen} onUserCreate={handleCreateUser} />
       <EditUserModal 
         isOpen={isEditModalOpen} 
         setIsOpen={setIsEditModalOpen} 
@@ -235,16 +256,6 @@ export default function UserManagementPage() {
             </div>
           </CardContent>
         </Card>
-
-        {filteredUsers.length === 0 && searchTerm && (
-             <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center py-8"
-            >
-                <p className="text-muted-foreground text-lg">No users found matching "{searchTerm}".</p>
-            </motion.div>
-        )}
 
         <Card className="glassmorphism-card">
           <CardHeader>
@@ -306,18 +317,28 @@ export default function UserManagementPage() {
                     </motion.tr>
                   ))}
                 </tbody>
-                 {filteredUsers.length === 0 && !searchTerm && (
-                     <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-center py-12"
-                    >
-                        <UserPlus size={48} className="mx-auto text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground text-xl">No users created yet (besides the default admin).</p>
-                        <p className="text-muted-foreground">Click "Add New User" to get started.</p>
-                    </motion.div>
-                )}
               </table>
+              {/* Mensajes fuera de la tabla */}
+              {filteredUsers.length === 0 && searchTerm && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center py-8"
+                >
+                  <p className="text-muted-foreground text-lg">No users found matching "{searchTerm}".</p>
+                </motion.div>
+              )}
+              {filteredUsers.length === 0 && !searchTerm && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center py-12"
+                >
+                  <UserPlus size={48} className="mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground text-xl">No users created yet (besides the default admin).</p>
+                  <p className="text-muted-foreground">Click "Add New User" to get started.</p>
+                </motion.div>
+              )}
             </div>
           </CardContent>
         </Card>

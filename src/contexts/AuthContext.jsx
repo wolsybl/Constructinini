@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '../components/ui/use-toast';
 import Cookies from 'js-cookie';
 import { 
   loginWithProfile, 
@@ -9,7 +9,7 @@ import {
   createProfileUser,
   checkUserExistsByEmail,
   fetchAllUsersAdminService
-} from '@/services/authService';
+} from '../services/authService';
 import { 
   fetchAllProjects, 
   createProject as createProjectService, 
@@ -19,7 +19,8 @@ import {
   assignWorker as assignWorkerService,
   updateProjectService,
   deleteProjectService
-} from '@/services/dataService';
+} from '../services/dataService';
+import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext(null);
 
@@ -298,14 +299,24 @@ const AuthProviderInternal = ({ children }) => {
   const fetchAttendanceStatus = useCallback(async (userId) => {
     if (!userId) return null;
     try {
-      // Replace with actual API call to fetch attendance status
-      const response = await fetch(`/api/attendance/${userId}`);
-      if (!response.ok) throw new Error('Failed to fetch attendance status');
-      const data = await response.json();
-      return data.status; // Assuming the API returns { status: "Checked In" }
+      // Consulta directa a Supabase para obtener el último registro de asistencia
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', userId)
+        .order('check_in_time', { ascending: false })
+        .limit(1);
+
+      if (error && error.code !== 'PGRST116') throw error;
+      if (!data || data.length === 0) return "No attendance record";
+
+      const last = data[0];
+      if (last.check_in_time && !last.check_out_time) return "Checked In";
+      if (last.check_in_time && last.check_out_time) return "Checked Out";
+      return "No attendance record";
     } catch (error) {
       handleError(error, "Error fetching attendance status");
-      return null; // Return null on error
+      return null;
     }
   }, [handleError]);
 
