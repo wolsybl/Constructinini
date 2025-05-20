@@ -155,7 +155,7 @@ export default function ManagerTaskPage() {
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Projects
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary">
+          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-gray-500">
             Manage Tasks for: {project.name}
           </h1>
           <p className="text-muted-foreground">{project.description}</p>

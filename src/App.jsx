@@ -18,6 +18,7 @@ import ManagerTaskPage from '@/pages/manager/ManagerTaskPage';
 import WorkerSiteViewPage from '@/pages/worker/WorkerSiteViewPage';
 import AttendancePage from '@/pages/worker/AttendancePage';
 import SystemSettingsPage from '@/pages/admin/SystemSettingsPage';
+import ProjectReadOnlyPage from '@/pages/ProjectReadOnlyPage'; // Agrega esta línea
 
 function AppContent() {
   const { user } = useAuth();
@@ -37,6 +38,8 @@ function AppContent() {
         <Route path="/project_manager/projects" element={<MainLayout><ManagerProjectManagementPage /></MainLayout>} />
         <Route path="/project_manager/workers" element={<MainLayout><WorkerManagementPage /></MainLayout>} />
         <Route path="/project_manager/tasks/:projectId" element={<MainLayout><ManagerTaskPage /></MainLayout>} />
+        {/* Ruta de solo lectura para proyectos */}
+        <Route path="/project_manager/projects/:id/view" element={<MainLayout><ProjectReadOnlyPage /></MainLayout>} />
       </Route>
       <Route element={<ProtectedRoute allowedRoles={['worker']} />}>
         <Route path="/worker/dashboard" element={<MainLayout><WorkerDashboardPage /></MainLayout>} />

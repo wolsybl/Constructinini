@@ -132,9 +132,23 @@ export default function ProjectManagerDashboardPage() {
           <CardContent>
             <p className="text-muted-foreground">A list or chart of your projects will be displayed here...</p>
             <ul className="mt-4 space-y-2">
-              <li className="text-sm p-2 bg-secondary/30 rounded-md">Project Alpha - 75% Complete</li>
-              <li className="text-sm p-2 bg-secondary/30 rounded-md">Project Beta - 40% Complete - 3 Overdue Tasks</li>
-              <li className="text-sm p-2 bg-secondary/30 rounded-md">Project Gamma - Just Started</li>
+              {projects
+                .filter(project => project.manager === user?.name)
+                .map(project => (
+                  <li
+                    key={project.id}
+                    className="text-sm p-2 bg-secondary/30 rounded-md flex justify-between items-center"
+                  >
+                    <span>{project.name}</span>
+                    <span className="ml-2 font-semibold text-primary">{project.progress ?? 0}% Complete</span>
+                    <Link
+                      to={`/project_manager/projects/${project.id}/view`}
+                      className="ml-4 text-xs underline text-accent hover:text-accent-foreground"
+                    >
+                      View Details
+                    </Link>
+                  </li>
+                ))}
             </ul>
           </CardContent>
         </Card>
