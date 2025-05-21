@@ -8,16 +8,20 @@ const defaultContainerStyle = {
   height: '100%',
 };
 
+const libraries = ["places"];
+
 export default function Maps({
   center = { lat: 4.8133, lng: -75.6967 },
   zoom = 12,
   children,
   mapContainerStyle = defaultContainerStyle,
   onClick,
+  onLoad,
+  mapId,
 }) {
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: MAPS_API_KEY,
-    libraries: ["places"],
+    libraries,
   });
 
   if (loadError) return <div>Error loading maps</div>;
@@ -29,6 +33,8 @@ export default function Maps({
       center={center}
       zoom={zoom}
       onClick={onClick}
+      onLoad={onLoad}
+      mapId={mapId}
     >
       {children}
     </GoogleMap>

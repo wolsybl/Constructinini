@@ -11,6 +11,31 @@ import { PlusCircle, Edit, Trash2, ListChecks, ArrowLeft, User } from 'lucide-re
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/lib/supabaseClient';
+
+// Nueva función para obtener los workers asignados a este proyecto
+async function fetchAssignedWorkers(projectId) {
+  const { data: assignments, error: assignmentError } = await supabase
+    .from('project_assignments')
+    .select('user_id')
+    .eq('project_id', projectId);
+  if (assignmentError) {
+    console.error('Error fetching assignments:', assignmentError);
+    return [];
+  }
+  const userIds = assignments.map(a => a.user_id);
+  if (userIds.length === 0) return [];
+  const { data: workers, error: workersError } = await supabase
+    .from('profiles')
+    .select('id, name')
+    .in('id', userIds)
+    .eq('role', 'worker');
+  if (workersError) {
+    console.error('Error fetching workers:', workersError);
+    return [];
+  }
+  return workers;
+}
 
 const CreateTaskModal = ({ isOpen, setIsOpen, projectId, onTaskCreate, workersOnProject }) => {
   const [title, setTitle] = useState('');
@@ -84,46 +109,42 @@ const CreateTaskModal = ({ isOpen, setIsOpen, projectId, onTaskCreate, workersOn
 
 export default function ManagerTaskPage() {
   const { projectId } = useParams();
-  const { tasks, addTask, getProjectById, projectAssignments, allUsers } = useAuth(); // Use allUsers for workers
+  const { tasks, addTask, getProjectById } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [project, setProject] = useState(null); // State for the project
-  const [workersOnThisProject, setWorkersOnThisProject] = useState([]); // State for workers
-  const [projectTasks, setProjectTasks] = useState([]); // State for tasks
+  const [project, setProject] = useState(null);
+  const [workersOnThisProject, setWorkersOnThisProject] = useState([]);
+  const [projectTasks, setProjectTasks] = useState([]);
   const { toast } = useToast();
 
   useEffect(() => {
     // Fetch project details
     const fetchProject = () => {
       const fetchedProject = getProjectById(projectId);
-      console.log("Fetched Project:", fetchedProject); // Debugging log
-      setProject(fetchedProject);
+      if (fetchedProject) {
+        setProject(fetchedProject);
+      }
     };
 
-    // Fetch workers assigned to this project
-    const fetchWorkers = () => {
-      const workers = projectAssignments
-        .filter(pa => pa.projectId === projectId)
-        .map(pa => allUsers.find(user => user.id === pa.userId))
-        .filter(Boolean);
-      console.log("Workers on this project:", workers); // Debugging log
+    // Fetch workers assigned to this project (directo de Supabase)
+    const fetchWorkers = async () => {
+      const workers = await fetchAssignedWorkers(projectId);
       setWorkersOnThisProject(workers);
     };
 
     // Fetch tasks for this project
     const fetchTasks = () => {
       const tasksForProject = tasks.filter(task => task.projectId === projectId);
-      console.log("Tasks for this project:", tasksForProject); // Debugging log
       setProjectTasks(tasksForProject);
     };
 
     fetchProject();
     fetchWorkers();
     fetchTasks();
-  }, [projectId, getProjectById, projectAssignments, allUsers, tasks]);
+  }, [projectId, getProjectById, tasks]);
 
   const getWorkerName = (userId) => {
     if (!userId) return <span className="italic text-muted-foreground">Unassigned</span>;
-    const worker = allUsers.find(user => user.id === userId);
+    const worker = workersOnThisProject.find(user => user.id === userId);
     return worker ? worker.name : <span className="italic text-red-500">Unknown Worker</span>;
   };
 
@@ -204,7 +225,8 @@ export default function ManagerTaskPage() {
                   </CardHeader>
                   <CardContent className="flex-grow">
                     <p className="text-sm mb-2">{task.description}</p>
-                    <p className="text-sm flex items-center"><User size={14} className="mr-2 text-tertiary" /> 
+                    <p className="text-sm flex items-center">
+                      <User size={14} className="mr-2 text-tertiary" /> 
                       <span className="font-semibold text-muted-foreground">Assigned to:</span>&nbsp; 
                       {getWorkerName(task.assignedToUserId)}
                     </p>

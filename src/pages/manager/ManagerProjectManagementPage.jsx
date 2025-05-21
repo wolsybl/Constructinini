@@ -67,7 +67,7 @@ import React, { useState } from 'react';
             </Card>
             
             {filteredProjects.length === 0 && (
-                 <motion.div
+                <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="text-center py-8"

@@ -118,7 +118,6 @@ export default function WorkerManagementPage() {
         <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-gray-400">
           Worker Management
         </h1>
-      
       </motion.div>
 
       <motion.div
@@ -168,14 +167,15 @@ export default function WorkerManagementPage() {
               <Card className="glassmorphism-card h-full flex flex-col">
                 <CardHeader>
                   <CardTitle className="text-xl text-primary">{worker.name}</CardTitle>
-                  <CardDescription className="text-muted-foreground">Skills: {worker.skills || 'N/A'}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow space-y-2">
                   <p className="text-sm flex items-center"><Briefcase size={14} className="mr-2 text-tertiary" /> 
                     <span className="font-semibold">Current Project:</span>&nbsp; 
                     <span className={worker.currentProject === 'Unassigned' ? 'italic text-muted-foreground' : ''}>{worker.currentProject}</span>
                   </p>
-                  <p className="text-sm flex items-center"><Phone size={14} className="mr-2 text-tertiary" /> <span className="font-semibold">Phone:</span> {worker.phone || 'N/A'}</p>
+                  {worker.phone && (
+                    <p className="text-sm flex items-center"><Phone size={14} className="mr-2 text-tertiary" /> <span className="font-semibold">Phone:</span> {worker.phone}</p>
+                  )}
                 </CardContent>
                 <CardFooter className="p-4 border-t border-border/20 flex justify-end pt-4">
                   <Button onClick={() => handleOpenModal(worker)} variant="outline" size="sm" className="hover:bg-primary/10 text-primary border-primary/50">
