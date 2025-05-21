@@ -66,7 +66,7 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
       latitude: lat, 
       longitude: lon,
       status: 'Planning', 
-      manager: selectedManager,
+      manager_id: selectedManager,
       radius
     });
     setProjectName('');
@@ -255,7 +255,7 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
       locationName, 
       latitude: lat, 
       longitude: lon,
-      manager: selectedManager,
+      manager_id: selectedManager,
       radius
     });
     setIsOpen(false);
