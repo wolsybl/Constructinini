@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, BrowserRouter } from 'react-router-dom'; // Ensure BrowserRouter is imported
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import LoginPage from '@/pages/LoginPage';
-import AdminDashboardPage from '@/pages/AdminDashboardPage';
+import AdminDashboardPage from '@/pages/admin/AdminDashboardPage';
 import ProjectManagerDashboardPage from '@/pages/ProjectManagerDashboardPage';
 import WorkerDashboardPage from '@/pages/WorkerDashboardPage';
 import NotFoundPage from '@/pages/NotFoundPage';
@@ -18,7 +18,8 @@ import ManagerTaskPage from '@/pages/manager/ManagerTaskPage';
 import WorkerSiteViewPage from '@/pages/worker/WorkerSiteViewPage';
 import AttendancePage from '@/pages/worker/AttendancePage';
 import SystemSettingsPage from '@/pages/admin/SystemSettingsPage';
-import ProjectReadOnlyPage from '@/pages/ProjectReadOnlyPage'; // Agrega esta línea
+import ProjectReadOnlyPage from '@/pages/ProjectReadOnlyPage';
+import ResourceRequestsPage from '@/pages/admin/ResourceRequestsPage';
 
 function AppContent() {
   const { user } = useAuth();
@@ -31,7 +32,8 @@ function AppContent() {
         <Route path="/admin/dashboard" element={<MainLayout><AdminDashboardPage /></MainLayout>} />
         <Route path="/admin/users" element={<MainLayout><UserManagementPage /></MainLayout>} />
         <Route path="/admin/projects" element={<MainLayout><AdminProjectManagementPage /></MainLayout>} />
-        <Route path="/admin/settings" element={<MainLayout><SystemSettingsPage /></MainLayout>} /> {/* New route */}
+        <Route path="/admin/settings" element={<MainLayout><SystemSettingsPage /></MainLayout>} />
+        <Route path="/admin/resource-requests" element={<MainLayout><ResourceRequestsPage /></MainLayout>} />
       </Route>
       <Route element={<ProtectedRoute allowedRoles={['project_manager']} />}>
         <Route path="/project_manager/dashboard" element={<MainLayout><ProjectManagerDashboardPage /></MainLayout>} />

@@ -1,11 +1,11 @@
-
-    import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
     import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
     import { Button } from '@/components/ui/button';
     import { Camera, MapPin, CheckCircle, XCircle, Loader2, AlertTriangle } from 'lucide-react';
     import { motion } from 'framer-motion';
     import { useToast } from '@/components/ui/use-toast';
     import { useAuth } from '@/contexts/AuthContext';
+    import { supabase } from '../../lib/supabaseClient';
 
     function calculateDistance(lat1, lon1, lat2, lon2) {
       const R = 6371e3; 
@@ -115,29 +115,82 @@
           return;
         }
         if (!currentLocation && !locationError) {
-           toast({ variant: "destructive", title: "Missing Location", description: "Please allow location access." });
+          toast({ variant: "destructive", title: "Missing Location", description: "Please allow location access." });
           return;
         }
         if (locationError) {
-           toast({ variant: "destructive", title: "Location Error", description: locationError });
+          toast({ variant: "destructive", title: "Location Error", description: locationError });
           return;
         }
         if (!assignedProject) {
-            toast({ variant: "destructive", title: "No Project", description: "You are not assigned to a project." });
-            return;
+          toast({ variant: "destructive", title: "No Project", description: "You are not assigned to a project." });
+          return;
         }
         if (!isWithinRange) {
-            toast({ variant: "destructive", title: "Out of Range", description: `You must be within ${assignedProject.radius} meters of the project site.` });
-            return;
+          toast({ variant: "destructive", title: "Out of Range", description: `You must be within ${assignedProject.radius} meters of the project site.` });
+          return;
         }
 
-
         setIsProcessing(true);
-        await new Promise(resolve => setTimeout(resolve, 1500)); 
 
-        setIsProcessing(false);
-        toast({ title: `Successfully Checked ${type === 'in' ? 'In' : 'Out'}`, description: `Your attendance for ${assignedProject.name} has been recorded at ${new Date().toLocaleTimeString()}` });
-        setPhoto(null); 
+        try {
+          let attendanceRecord;
+          if (type === 'in') {
+            // Insertar nuevo registro de check-in
+            const { data, error } = await supabase
+              .from('attendance')
+              .insert([{
+                user_id: user.id,
+                project_id: assignedProject.id,
+                check_in_time: new Date().toISOString(),
+                check_in_latitude: currentLocation.latitude,
+                check_in_longitude: currentLocation.longitude,
+                check_in_photo_url: photo,
+              }])
+              .select()
+              .single();
+            if (error) throw error;
+            attendanceRecord = data;
+          } else if (type === 'out') {
+            // Buscar el último registro de check-in sin check-out para este usuario y proyecto
+            const { data: lastAttendance, error: fetchError } = await supabase
+              .from('attendance')
+              .select('*')
+              .eq('user_id', user.id)
+              .eq('project_id', assignedProject.id)
+              .is('check_out_time', null)
+              .order('check_in_time', { ascending: false })
+              .limit(1)
+              .single();
+            if (fetchError || !lastAttendance) {
+              toast({ variant: "destructive", title: "No Check-In Found", description: "No open check-in found for check-out." });
+              setIsProcessing(false);
+              return;
+            }
+            // Actualizar ese registro con los datos de check-out
+            const { error: updateError } = await supabase
+              .from('attendance')
+              .update({
+                check_out_time: new Date().toISOString(),
+                check_out_latitude: currentLocation.latitude,
+                check_out_longitude: currentLocation.longitude,
+                check_out_photo_url: photo,
+              })
+              .eq('id', lastAttendance.id);
+            if (updateError) throw updateError;
+            attendanceRecord = { ...lastAttendance, check_out_time: new Date().toISOString() };
+          }
+
+          setIsProcessing(false);
+          toast({
+            title: `Successfully Checked ${type === 'in' ? 'In' : 'Out'}`,
+            description: `Your attendance for ${assignedProject.name} has been recorded at ${new Date().toLocaleTimeString()}`,
+          });
+          setPhoto(null);
+        } catch (err) {
+          setIsProcessing(false);
+          toast({ variant: "destructive", title: "Attendance Error", description: err.message || "Failed to record attendance." });
+        }
       };
 
 
@@ -169,7 +222,7 @@
                   </div>
                 ) : photo ? (
                   <div className="relative">
-                    <img  alt="Captured attendance photo" className="w-full h-auto rounded-md border aspect-video object-cover" src="https://images.unsplash.com/photo-1671109705925-bd56f2efae54" />
+                    <img  alt="Captured attendance photo" className="w-full h-auto rounded-md border aspect-video object-cover" src={photo} />
                     <Button onClick={startCamera} variant="outline" size="sm" className="absolute top-2 right-2 bg-background/70">Retake</Button>
                   </div>
                 ) : (
@@ -234,4 +287,3 @@
         </div>
       );
     }
-  

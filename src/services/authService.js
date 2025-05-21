@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '../lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 
 const handleSupabaseError = (error, context) => {
@@ -62,21 +62,25 @@ export const getProfileSession = () => {
 
 export const createProfileUser = async (userData) => {
   try {
-    // 1. Crear usuario en Supabase Auth
-    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-      email: userData.email,
-      password: userData.password,
-      email_confirm: true,
-    });
-    if (authError) throw authError;
+    // Check if email already exists
+    const { data: existingUser, error: checkError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', userData.email)
+      .maybeSingle();
 
-    // 2. Crear perfil en la tabla profiles usando el id del usuario Auth
+    if (checkError && checkError.code !== 'PGRST116') throw checkError;
+    if (existingUser) {
+      throw new Error('A user with this email already exists.');
+    }
+
     const profileData = {
-      id: authUser.user.id,
+      id: uuidv4(),
       name: userData.name,
       email: userData.email,
       role: userData.role,
       status: 'Active',
+      password: userData.password, // For testing
     };
     const { data, error } = await supabase
       .from('profiles')

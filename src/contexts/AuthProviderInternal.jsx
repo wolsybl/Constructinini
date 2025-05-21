@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '../components/ui/use-toast';
 import Cookies from 'js-cookie';
 import { handleError } from './utils/errorHandler';
 import { loadInitialData } from './utils/dataLoader';
