@@ -33,9 +33,10 @@ import React, { useState, useRef, useEffect } from 'react';
       const videoRef = useRef(null);
       const canvasRef = useRef(null);
       const { toast } = useToast();
-      const { user, getProjectById } = useAuth();
+      const { user, getProjectById, projectAssignments } = useAuth();
 
-      const assignedProject = user?.assignedProjectId ? getProjectById(user.assignedProjectId) : null;
+      const assignedProjectAssignment = projectAssignments.find(assignment => assignment.user_id === user?.id);
+      const assignedProject = assignedProjectAssignment ? getProjectById(assignedProjectAssignment.project_id) : null;
 
       const startCamera = async () => {
         try {
@@ -134,6 +135,25 @@ import React, { useState, useRef, useEffect } from 'react';
         setIsProcessing(true);
 
         try {
+          // Upload photo to Supabase Storage
+          const file = await fetch(photo).then(res => res.blob());
+          const fileExt = photo.substring('data:image/'.length, photo.indexOf(';base64'));
+          const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+          const filePath = `attendance-photos/${fileName}`;
+
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('attendance-photos')
+            .upload(fileName, file);
+
+          if (uploadError) throw uploadError;
+
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from('attendance-photos')
+            .getPublicUrl(fileName);
+
+          const photoUrl = urlData.publicUrl;
+
           let attendanceRecord;
           if (type === 'in') {
             // Insertar nuevo registro de check-in
@@ -145,7 +165,7 @@ import React, { useState, useRef, useEffect } from 'react';
                 check_in_time: new Date().toISOString(),
                 check_in_latitude: currentLocation.latitude,
                 check_in_longitude: currentLocation.longitude,
-                check_in_photo_url: photo,
+                check_in_photo_url: photoUrl,
               }])
               .select()
               .single();
@@ -174,7 +194,7 @@ import React, { useState, useRef, useEffect } from 'react';
                 check_out_time: new Date().toISOString(),
                 check_out_latitude: currentLocation.latitude,
                 check_out_longitude: currentLocation.longitude,
-                check_out_photo_url: photo,
+                check_out_photo_url: photoUrl,
               })
               .eq('id', lastAttendance.id);
             if (updateError) throw updateError;
