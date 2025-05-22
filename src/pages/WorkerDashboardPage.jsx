@@ -73,7 +73,7 @@ export default function WorkerDashboardPage() {
       icon: <MapPin className="h-6 w-6 text-primary" />,
       color: 'text-primary',
       actionText: assignedSite ? 'View Site Details' : null,
-      link: assignedSite ? `/worker/site/${assignedSite.id}` : '#',
+      link: assignedSite ? `/worker/site/${assignedSite.id}/view` : '#',
     },
     {
       title: "Today's Tasks",

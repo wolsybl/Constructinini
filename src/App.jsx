@@ -48,7 +48,7 @@ function AppContent() {
       </Route>
       <Route element={<ProtectedRoute allowedRoles={['worker']} />}>
         <Route path="/worker/dashboard" element={<MainLayout><WorkerDashboardPage /></MainLayout>} />
-        <Route path="/worker/site" element={<MainLayout><WorkerSiteViewPage /></MainLayout>} />
+        <Route path="/worker/site/:id/view" element={<MainLayout><WorkerSiteViewPage /></MainLayout>} />
         <Route path="/worker/attendance" element={<MainLayout><AttendancePage /></MainLayout>} />
         <Route path="/worker/tasks" element={<MainLayout><WorkerTasksPage /></MainLayout>} />
       </Route>
