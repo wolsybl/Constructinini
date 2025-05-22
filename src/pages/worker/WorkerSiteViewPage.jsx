@@ -351,12 +351,7 @@ export default function WorkerSiteViewPage() {
             <div className="mt-4 bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 p-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-sm font-semibold text-gray-700">Resource Management</h3>
-                <button
-                  onClick={() => setShowRequestForm(!showRequestForm)}
-                  className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm"
-                >
-                  {showRequestForm ? 'Cancel' : 'Request Resources'}
-                </button>
+                {/* Botón de Request Resources eliminado */}
               </div>
 
               {showRequestForm ? (
@@ -468,7 +463,7 @@ export default function WorkerSiteViewPage() {
                           'bg-red-100 text-red-700'
                         }`}>
                           {resource.status === 'available' ? 'Available' :
-                           resource.status === 'medium' ? 'Medium' : 'Low'}
+                            resource.status === 'medium' ? 'Medium' : 'Low'}
                         </div>
                       </div>
                     ))
