@@ -46,7 +46,7 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
     setLongitude(e.latLng.lng());
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!projectName || !locationName || !latitude || !longitude || !selectedManager) {
       toast({ variant: "destructive", title: "Error", description: "Please fill all required fields." });
@@ -60,24 +60,23 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
       return;
     }
 
-    onProjectCreate({ 
-      name: projectName, 
-      description: projectDescription, 
-      locationName, 
-      latitude: lat, 
-      longitude: lon,
-      status: 'Planning', 
-      manager_id: selectedManager,
-      radius
-    });
-    setProjectName('');
-    setProjectDescription('');
-    setLocationName('');
-    setLatitude('');
-    setLongitude('');
-    setSelectedManager('');
-    setRadius(100);
-    setIsOpen(false);
+    try {
+      await onProjectCreate({ 
+        name: projectName, 
+        description: projectDescription, 
+        locationName, 
+        latitude: lat, 
+        longitude: lon,
+        status: 'Planning', 
+        manager_id: selectedManager,
+        radius
+      });
+      setIsOpen(false);
+      toast({ title: "Success", description: "Project created successfully." });
+    } catch (error) {
+      console.error('Error creating project:', error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to create project." });
+    }
   };
 
   return (
@@ -88,27 +87,27 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
           <DialogDescription>Fill in the details below to create a new construction project.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-3 py-3">
+          <div className="flex flex-col gap-4 py-4">
             <div className="flex flex-col gap-1">
               <Label htmlFor="projectName" className="text-muted-foreground">Name</Label>
-              <Input id="projectName" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="bg-background/70" placeholder="e.g., Skyscraper Alpha" />
+              <Input id="projectName" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="bg-background/70 focus:ring-2 focus:ring-primary" placeholder="e.g., Skyscraper Alpha" />
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="projectDescription" className="text-muted-foreground">Description</Label>
-              <Input id="projectDescription" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} className="bg-background/70" placeholder="Brief project overview" />
+              <Input id="projectDescription" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} className="bg-background/70 focus:ring-2 focus:ring-primary" placeholder="Brief project overview" />
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="locationName" className="text-muted-foreground">Location Name</Label>
-              <Input id="locationName" value={locationName} onChange={(e) => setLocationName(e.target.value)} className="bg-background/70" placeholder="e.g., City Center Plaza" />
+              <Input id="locationName" value={locationName} onChange={(e) => setLocationName(e.target.value)} className="bg-background/70 focus:ring-2 focus:ring-primary" placeholder="e.g., City Center Plaza" />
             </div>
-            <div className="flex flex-row gap-3">
+            <div className="flex flex-row gap-4">
               <div className="flex flex-col gap-1 flex-1">
                 <Label htmlFor="latitude" className="text-muted-foreground">Latitude</Label>
-                <Input id="latitude" type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} className="bg-background/70" placeholder="e.g., 40.7128" />
+                <Input id="latitude" type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} className="bg-background/70 focus:ring-2 focus:ring-primary" placeholder="e.g., 40.7128" />
               </div>
               <div className="flex flex-col gap-1 flex-1">
                 <Label htmlFor="longitude" className="text-muted-foreground">Longitude</Label>
-                <Input id="longitude" type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} className="bg-background/70" placeholder="e.g., -74.0060" />
+                <Input id="longitude" type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} className="bg-background/70 focus:ring-2 focus:ring-primary" placeholder="e.g., -74.0060" />
               </div>
             </div>
             <div className="flex flex-col gap-1">
@@ -120,7 +119,7 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
                   id="manager" 
                   value={selectedManager} 
                   onChange={(e) => setSelectedManager(e.target.value)} 
-                  className="bg-background/70 p-2 rounded-md border border-border"
+                  className="bg-background/70 p-2 rounded-md border border-border focus:ring-2 focus:ring-primary"
                 >
                   <option value="" disabled>Select a manager</option>
                   {managers.map(manager => (
@@ -129,7 +128,7 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
                 </select>
               )}
             </div>
-            <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-3">
+            <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-4">
               <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
                 <Globe size={16} className="inline" />
                 Project radius for worker check-in (meters)
@@ -148,7 +147,7 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
                 {radius} meters
               </div>
             </div>
-            <div className="col-span-4 h-64">
+            <div className="col-span-4 h-64 rounded-md overflow-hidden">
               <Maps
                 mapContainerStyle={{ width: '100%', height: '100%' }}
                 center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
@@ -209,7 +208,7 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
       setLocationName(project.locationName || '');
       setLatitude(project.latitude || '');
       setLongitude(project.longitude || '');
-      setSelectedManager(project.manager || '');
+      setSelectedManager(project.manager_id || '');
       setRadius(project.radius || 100);
     }
   }, [project]);
@@ -234,7 +233,7 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
     setLongitude(e.latLng.lng());
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!projectName || !locationName || !latitude || !longitude || !selectedManager) {
       toast({ variant: "destructive", title: "Error", description: "Please fill all required fields." });
@@ -248,123 +247,247 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
       return;
     }
 
-    onProjectUpdate({ 
-      ...project,
-      name: projectName, 
-      description: projectDescription, 
-      locationName, 
-      latitude: lat, 
-      longitude: lon,
-      manager_id: selectedManager,
-      radius
-    });
-    setIsOpen(false);
+    try {
+      await onProjectUpdate({ 
+        ...project,
+        name: projectName, 
+        description: projectDescription, 
+        locationName, 
+        latitude: lat, 
+        longitude: lon,
+        manager_id: selectedManager,
+        radius
+      });
+      setIsOpen(false);
+      toast({ title: "Success", description: "Project updated successfully." });
+    } catch (error) {
+      console.error('Error updating project:', error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to update project." });
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[525px] bg-card glassmorphism-card">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary">Edit Project</DialogTitle>
-          <DialogDescription>Modify the details below and save changes.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-4 py-4">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="editProjectName" className="text-muted-foreground">Name</Label>
-              <Input id="editProjectName" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="bg-background/70" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="editProjectDescription" className="text-muted-foreground">Description</Label>
-              <Input id="editProjectDescription" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} className="bg-background/70" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="editLocationName" className="text-muted-foreground">Location Name</Label>
-              <Input id="editLocationName" value={locationName} onChange={(e) => setLocationName(e.target.value)} className="bg-background/70" />
-            </div>
-            <div className="flex flex-row gap-4">
-              <div className="flex flex-col gap-1 flex-1">
-                <Label htmlFor="editLatitude" className="text-muted-foreground">Latitude</Label>
-                <Input id="editLatitude" type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} className="bg-background/70" />
-              </div>
-              <div className="flex flex-col gap-1 flex-1">
-                <Label htmlFor="editLongitude" className="text-muted-foreground">Longitude</Label>
-                <Input id="editLongitude" type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} className="bg-background/70" />
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="editManager" className="text-muted-foreground">Manager</Label>
-              {loadingManagers ? (
-                <p className="text-muted-foreground">Loading managers...</p>
-              ) : (
-                <select
-                  id="editManager"
-                  value={selectedManager}
-                  onChange={(e) => setSelectedManager(e.target.value)}
-                  className="bg-background/70 p-2 rounded-md border border-border"
+      <DialogContent className="sm:max-w-[525px] bg-gradient-to-br from-background/95 to-background/80 backdrop-blur-xl border border-primary/20 shadow-2xl rounded-xl overflow-hidden">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <DialogHeader className="space-y-3 pb-4 border-b border-primary/10">
+            <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-tertiary">
+              Edit Project
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground/80">
+              Modify the details below and save changes.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit}>
+            <motion.div 
+              className="flex flex-col gap-4 py-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+            >
+              <div className="grid grid-cols-2 gap-4">
+                <motion.div 
+                  className="flex flex-col gap-1"
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.2 }}
                 >
-                  <option value="" disabled>Select a manager</option>
-                  {managers.map(manager => (
-                    <option key={manager.id} value={manager.id}>{manager.name}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-            <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-3">
-              <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
-                <Globe size={16} className="inline" />
-                Project radius for worker check-in (meters)
-              </Label>
-              <input
-                id="radius"
-                type="range"
-                min={50}
-                max={1000}
-                step={10}
-                value={radius}
-                onChange={e => setRadius(Number(e.target.value))}
-                className="w-full accent-primary"
-              />
-              <div className="text-xs text-muted-foreground text-right">
-                {radius} meters
+                  <Label htmlFor="editProjectName" className="text-muted-foreground">Name</Label>
+                  <Input 
+                    id="editProjectName" 
+                    value={projectName} 
+                    onChange={(e) => setProjectName(e.target.value)} 
+                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                  />
+                </motion.div>
+                <motion.div 
+                  className="flex flex-col gap-1"
+                  initial={{ x: 20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <Label htmlFor="editLocationName" className="text-muted-foreground">Location</Label>
+                  <Input 
+                    id="editLocationName" 
+                    value={locationName} 
+                    onChange={(e) => setLocationName(e.target.value)} 
+                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                  />
+                </motion.div>
               </div>
-            </div>
-            <div className="col-span-4 h-64">
-              <Maps
-                mapContainerStyle={{ width: '100%', height: '100%' }}
-                center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
-                zoom={12}
-                onClick={handleMapClick}
-                mapId="5795a66c547e6becbb38a780"
+
+              <motion.div 
+                className="flex flex-col gap-1"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
               >
-                {latitude && longitude && (
-                  <>
-                    <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
-                    <Circle
-                      center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
-                      radius={radius}
-                      options={{
-                        fillColor: '#007bff',
-                        fillOpacity: 0.2,
-                        strokeColor: '#007bff',
-                        strokeOpacity: 0.6,
-                        strokeWeight: 2,
-                        clickable: false,
-                        draggable: false,
-                        editable: false,
-                        visible: true,
-                      }}
+                <Label htmlFor="editProjectDescription" className="text-muted-foreground">Description</Label>
+                <Input 
+                  id="editProjectDescription" 
+                  value={projectDescription} 
+                  onChange={(e) => setProjectDescription(e.target.value)} 
+                  className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                />
+              </motion.div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <motion.div 
+                  className="flex flex-col gap-1"
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                >
+                  <Label htmlFor="editLatitude" className="text-muted-foreground">Latitude</Label>
+                  <Input 
+                    id="editLatitude" 
+                    type="number" 
+                    step="any" 
+                    value={latitude} 
+                    onChange={(e) => setLatitude(e.target.value)} 
+                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                  />
+                </motion.div>
+                <motion.div 
+                  className="flex flex-col gap-1"
+                  initial={{ x: 20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.6 }}
+                >
+                  <Label htmlFor="editLongitude" className="text-muted-foreground">Longitude</Label>
+                  <Input 
+                    id="editLongitude" 
+                    type="number" 
+                    step="any" 
+                    value={longitude} 
+                    onChange={(e) => setLongitude(e.target.value)} 
+                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                  />
+                </motion.div>
+              </div>
+
+              <motion.div 
+                className="flex flex-col gap-1"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.7 }}
+              >
+                <Label htmlFor="editManager" className="text-muted-foreground">Manager</Label>
+                {loadingManagers ? (
+                  <div className="h-10 bg-background/50 border border-primary/20 rounded-md flex items-center justify-center">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      className="w-5 h-5 border-2 border-primary/50 border-t-transparent rounded-full"
                     />
-                  </>
+                  </div>
+                ) : (
+                  <select
+                    id="editManager"
+                    value={selectedManager}
+                    onChange={(e) => setSelectedManager(e.target.value)}
+                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 p-2 rounded-md"
+                  >
+                    <option value="" disabled>Select a manager</option>
+                    {managers.map(manager => (
+                      <option key={manager.id} value={manager.id}>{manager.name}</option>
+                    ))}
+                  </select>
                 )}
-              </Maps>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="bg-secondary/50 hover:bg-secondary/80">Cancel</Button>
-            <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">Save Changes</Button>
-          </DialogFooter>
-        </form>
+              </motion.div>
+
+              <motion.div 
+                className="flex flex-col gap-2 bg-primary/5 rounded-md p-4"
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.8 }}
+              >
+                <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
+                  <Globe size={16} className="text-primary" />
+                  Project radius for worker check-in (meters)
+                </Label>
+                <input
+                  id="radius"
+                  type="range"
+                  min={50}
+                  max={1000}
+                  step={10}
+                  value={radius}
+                  onChange={e => setRadius(Number(e.target.value))}
+                  className="w-full accent-primary"
+                />
+                <div className="text-xs text-muted-foreground text-right">
+                  {radius} meters
+                </div>
+              </motion.div>
+
+              <motion.div 
+                className="h-64 rounded-md overflow-hidden border border-primary/20"
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.9 }}
+              >
+                <Maps
+                  mapContainerStyle={{ width: '100%', height: '100%' }}
+                  center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
+                  zoom={12}
+                  onClick={handleMapClick}
+                  mapId="5795a66c547e6becbb38a780"
+                >
+                  {latitude && longitude && (
+                    <>
+                      <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
+                      <Circle
+                        center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
+                        radius={radius}
+                        options={{
+                          fillColor: '#007bff',
+                          fillOpacity: 0.2,
+                          strokeColor: '#007bff',
+                          strokeOpacity: 0.6,
+                          strokeWeight: 2,
+                          clickable: false,
+                          draggable: false,
+                          editable: false,
+                          visible: true,
+                        }}
+                      />
+                    </>
+                  )}
+                </Maps>
+              </motion.div>
+            </motion.div>
+
+            <DialogFooter className="border-t border-primary/10 pt-4">
+              <motion.div
+                className="flex gap-3 w-full"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1 }}
+              >
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsOpen(false)} 
+                  className="flex-1 bg-background/50 border-primary/20 hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="flex-1 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white transition-all duration-200"
+                >
+                  Save Changes
+                </Button>
+              </motion.div>
+            </DialogFooter>
+          </form>
+        </motion.div>
       </DialogContent>
     </Dialog>
   );
@@ -379,6 +502,20 @@ export default function AdminProjectManagementPage() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [mapCenter, setMapCenter] = useState({ lat: 4.8133, lng: -75.6967 });
   const [mapZoom, setMapZoom] = useState(12);
+  const [managers, setManagers] = useState([]);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const loadManagers = async () => {
+      try {
+        const managersList = await fetchManagers();
+        setManagers(managersList);
+      } catch (error) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to load project managers." });
+      }
+    };
+    loadManagers();
+  }, [toast]);
 
   const filteredProjects = projects.filter(project => 
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -390,9 +527,15 @@ export default function AdminProjectManagementPage() {
     setIsEditModalOpen(true);
   };
 
-  const handleProjectUpdate = (updatedProject) => {
-    updateProject(updatedProject);
-    setIsEditModalOpen(false);
+  const handleProjectUpdate = async (updatedProject) => {
+    try {
+      await updateProject(updatedProject);
+      setIsEditModalOpen(false);
+      toast({ title: "Success", description: "Project updated successfully." });
+    } catch (error) {
+      console.error('Error updating project:', error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to update project." });
+    }
   };
 
   const handleDeleteClick = (projectId) => {
@@ -531,46 +674,35 @@ export default function AdminProjectManagementPage() {
         <div className="space-y-6">
           <Card className="glassmorphism-card h-[600px]">
             <CardHeader>
-              <CardTitle>Project Locations</CardTitle>
-              <CardDescription>Click on a project to view its details</CardDescription>
+              <CardTitle>Managers</CardTitle>
+              <CardDescription>Managers assigned to projects and those available.</CardDescription>
             </CardHeader>
-            <CardContent className="p-0">
-              <Maps
-                mapContainerStyle={{ width: '100%', height: '100%' }}
-                center={mapCenter}
-                zoom={mapZoom}
-                mapId="5795a66c547e6becbb38a780"
-              >
-                {filteredProjects.map((project) => (
-                  <React.Fragment key={project.id}>
-                    <Marker
-                      position={{ lat: project.latitude, lng: project.longitude }}
-                      onClick={() => handleProjectClick(project)}
-                      icon={{
-                        url: selectedProject?.id === project.id 
-                          ? 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-                          : 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-                        scaledSize: new window.google.maps.Size(40, 40)
-                      }}
-                    />
-                    <Circle
-                      center={{ lat: project.latitude, lng: project.longitude }}
-                      radius={project.radius}
-                      options={{
-                        fillColor: selectedProject?.id === project.id ? '#3b82f6' : '#ef4444',
-                        fillOpacity: 0.2,
-                        strokeColor: selectedProject?.id === project.id ? '#3b82f6' : '#ef4444',
-                        strokeOpacity: 0.6,
-                        strokeWeight: 2,
-                        clickable: false,
-                        draggable: false,
-                        editable: false,
-                        visible: true,
-                      }}
-                    />
-                  </React.Fragment>
-                ))}
-              </Maps>
+            <CardContent className="p-4 max-h-[500px] overflow-y-auto">
+              {/* Manager List */}
+              <div className="space-y-3">
+                {managers.length === 0 ? (
+                  <p className="text-muted-foreground text-center">No managers found.</p>
+                ) : (
+                  managers.map(manager => {
+                    const assignedProjects = projects.filter(project => project.manager_id === manager.id);
+                    return (
+                      <div key={manager.id} className="flex justify-between items-center p-3 bg-background/50 rounded-md">
+                        <div>
+                          <p className="font-medium">{manager.name}</p>
+                          <p className="text-xs text-muted-foreground">{manager.email}</p>
+                        </div>
+                        {
+                          assignedProjects.length > 0 ? (
+                            <Badge variant="default">Assigned ({assignedProjects.length})</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-muted-foreground">Available</Badge>
+                          )
+                        }
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </CardContent>
           </Card>
 
