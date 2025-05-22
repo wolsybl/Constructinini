@@ -250,6 +250,16 @@ const AuthProviderInternal = ({ children }) => {
       await assignWorkerService(userId, projectId);
       toast({title: "Worker Assignment Updated", description: `Worker assignment has been updated for project.`});
       setProjectAssignments(await fetchAllProjectAssignments());
+
+      // Update the user state if the assigned user is the currently logged-in user
+      if (user && user.id === userId) {
+        setUser(prevUser => ({
+          ...prevUser,
+          assignedProjectId: projectId
+        }));
+        console.log(`User ${userId} assigned to project ${projectId}. User state updated.`);
+      }
+
     } catch (error) {
       handleError(error, "Worker Assignment Failed");
     } finally {
