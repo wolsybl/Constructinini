@@ -5,6 +5,7 @@ import { ClipboardList, CalendarClock, UserCheck, MapPin } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function WorkerDashboardPage() {
   const { user, projects, tasks, fetchAttendanceStatus } = useAuth(); // Fetch attendance status from context
@@ -15,14 +16,31 @@ export default function WorkerDashboardPage() {
 
   useEffect(() => {
     // Find the assigned site for the worker
-    const site = projects.find((project) =>
-      project.teamMembers?.includes(user?.id)
-    );
-    setAssignedSite(site);
+    const fetchAssignedSite = async () => {
+      try {
+        const { data: assignment, error: assignmentError } = await supabase
+          .from('project_assignments')
+          .select('project_id')
+          .eq('user_id', user?.id)
+          .maybeSingle();
+
+        if (assignmentError) throw assignmentError;
+        if (!assignment) {
+          setAssignedSite(null);
+          return;
+        }
+
+        const site = projects.find(project => project.id === assignment.project_id);
+        setAssignedSite(site);
+      } catch (error) {
+        console.error('Error fetching assigned site:', error);
+        setAssignedSite(null);
+      }
+    };
 
     // Calculate pending tasks for the worker
     const workerTasks = tasks.filter(
-      (task) => task.assignedTo === user?.id && task.status !== 'Completed'
+      (task) => task.assigned_to_user_id === user?.id && task.status !== 'Completed'
     );
     setPendingTasks(workerTasks.length);
 
@@ -43,6 +61,7 @@ export default function WorkerDashboardPage() {
     };
 
     if (user?.id) {
+      fetchAssignedSite();
       loadAttendanceStatus();
     }
   }, [projects, tasks, user, fetchAttendanceStatus]);
@@ -130,7 +149,7 @@ export default function WorkerDashboardPage() {
           <CardContent>
             <ul className="space-y-3">
               {tasks
-                .filter((task) => task.assignedTo === user?.id)
+                .filter((task) => task.assigned_to_user_id === user?.id)
                 .map((task) => (
                   <li
                     key={task.id}

@@ -38,15 +38,23 @@ export default function SystemSettingsPage() {
         if (error) throw error;
 
         // Formatea los datos para el reporte
-        const formatted = (data || []).map(row => ({
-          name: row.profiles?.name || 'Unknown',
-          project: row.projects?.name || 'Unknown',
-          hoursWorked: row.check_in_time && row.check_out_time
-            ? ((new Date(row.check_out_time) - new Date(row.check_in_time)) / 3600000).toFixed(2)
-            : 0,
-          userId: row.user_id,
-          projectId: row.project_id,
-        }));
+        const formatted = (data || []).map(row => {
+          const hoursWorked = row.check_in_time && row.check_out_time
+            ? ((new Date(row.check_out_time) - new Date(row.check_in_time)) / 3600000) // Difference in hours
+            : 0;
+          const payment = parseFloat((hoursWorked * 8.33).toFixed(2)); // Calculate payment and fix to 2 decimal places
+
+          return {
+            name: row.profiles?.name || 'Unknown',
+            project: row.projects?.name || 'Unknown',
+            hoursWorked: parseFloat(hoursWorked.toFixed(2)), // Also fix hours to 2 decimal places for consistency
+            payment: payment, // Add payment here
+            userId: row.user_id,
+            projectId: row.project_id,
+            checkIn: row.check_in_time, // Keep original times for potential future use
+            checkOut: row.check_out_time,
+          };
+        });
 
         setAttendanceData(formatted);
       } catch (error) {
@@ -74,12 +82,13 @@ export default function SystemSettingsPage() {
   });
 
   const exportToExcel = () => {
-    const header = ['Name', 'Hours Worked', 'Project', 'Assigned Tasks'];
+    const header = ['Name', 'Hours Worked', 'Project', 'Assigned Tasks', 'Payment (USD)'];
     const rows = sortedAttendance.map(row => [
       row.name,
       row.hoursWorked,
       row.project,
       getUserTasks(row.userId, row.projectId),
+      row.payment,
     ]);
     const csvContent = [header, ...rows]
       .map(e => e.map(val => `"${val}"`).join(','))
@@ -96,23 +105,29 @@ export default function SystemSettingsPage() {
     doc.text('Attendance Report', 14, 16);
     doc.setFontSize(12);
 
+    const head = [['Name', 'Hours Worked', 'Project', 'Assigned Tasks', 'Payment (USD)']];
+    const body = sortedAttendance.map(row => [
+      row.name,
+      row.hoursWorked,
+      row.project,
+      getUserTasks(row.userId, row.projectId),
+      row.payment,
+    ]);
+
     autoTable(doc, {
       startY: 24,
-      head: [['Name', 'Hours Worked', 'Project', 'Assigned Tasks']],
-      body: sortedAttendance.map(row => [
-        row.name,
-        row.hoursWorked,
-        row.project,
-        getUserTasks(row.userId, row.projectId),
-      ]),
+      head: head,
+      body: body,
       styles: { fontSize: 10, cellPadding: 2 },
       headStyles: { fillColor: [41, 128, 185], textColor: 255 },
       alternateRowStyles: { fillColor: [240, 240, 240] },
       margin: { left: 10, right: 10 },
     });
 
-    doc.save('attendance_report.pdf');
-    toast({ variant: 'success', title: 'Export Successful', description: 'PDF file has been downloaded.' });
+    setTimeout(() => {
+      doc.save('attendance_report.pdf');
+      toast({ variant: 'success', title: 'Export Successful', description: 'PDF file has been downloaded.' });
+    }, 100);
   };
 
   // Resumen de asistencia

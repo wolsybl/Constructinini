@@ -89,17 +89,32 @@ export default function MainLayout({ children }) {
         </div>
       </motion.header>
 
-      <div className="flex flex-1">
+      <div className="relative flex flex-1">
         <AnimatePresence mode="wait">
           {isSidebarOpen && (
             <motion.nav 
-              className="w-64 bg-white/70 backdrop-blur-xl border-r border-white/20 p-4 hidden md:block"
+              className="relative w-64 bg-white/70 backdrop-blur-xl border-r border-white/20 p-4 hidden md:flex flex-col"
               initial={{ x: -100, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -100, opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ 
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
+                duration: 0.25
+              }}
             >
-              <div className="space-y-2">
+              <motion.button
+                type="button"
+                onClick={() => setIsSidebarOpen(false)}
+                className="absolute -right-5 top-4 bg-white/70 backdrop-blur-xl border border-white/20 rounded-full shadow-lg hover:bg-white/80 transition-all duration-200 w-10 h-10 flex items-center justify-center z-20"
+                whileHover={{ scale: 1.1 }}
+                animate={{ rotate: 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30, duration: 0.25 }}
+              >
+                <ChevronLeft size={20} className="text-primary" />
+              </motion.button>
+              <div className="space-y-2 mt-12">
                 {getLinks().map((link) => (
                   <Link
                     key={link.path}
@@ -119,23 +134,23 @@ export default function MainLayout({ children }) {
           )}
         </AnimatePresence>
 
-        <div className="relative flex-grow">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute left-0 top-4 -translate-x-1/2 bg-white/70 backdrop-blur-xl border border-white/20 rounded-full shadow-lg hover:bg-white/80 hover:scale-110 transition-all duration-200 z-10 hidden md:flex w-8 h-8"
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        {/* Toggle button when sidebar is closed */}
+        {!isSidebarOpen && (
+          <motion.button
+            type="button"
+            onClick={() => setIsSidebarOpen(true)}
+            className="fixed md:absolute left-4 top-20 md:top-4 bg-white/70 backdrop-blur-xl border border-white/20 rounded-full shadow-lg hover:bg-white/80 transition-all duration-200 w-10 h-10 flex items-center justify-center z-30"
+            whileHover={{ scale: 1.1 }}
+            animate={{ rotate: 180 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30, duration: 0.25 }}
           >
-            {isSidebarOpen ? 
-              <ChevronLeft size={18} className="text-primary" /> : 
-              <ChevronRight size={18} className="text-primary" />
-            }
-          </Button>
-          
-          <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {children}
-          </main>
-        </div>
+            <ChevronLeft size={20} className="text-primary" />
+          </motion.button>
+        )}
+
+        <main className="flex-1 px-4 sm:px-8 lg:px-12 py-8 flex flex-col">
+          {children}
+        </main>
       </div>
 
       <footer className="py-6 text-center text-sm text-gray-600 border-t border-white/20 bg-white/70 backdrop-blur-xl">

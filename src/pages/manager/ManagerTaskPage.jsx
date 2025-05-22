@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea'; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Edit, Trash2, ListChecks, ArrowLeft, User } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ListChecks, ArrowLeft, User, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -40,7 +40,8 @@ async function fetchAssignedWorkers(projectId) {
 const CreateTaskModal = ({ isOpen, setIsOpen, projectId, onTaskCreate, workersOnProject }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [assignedToUserId, setAssignedToUserId] = useState(null); // Use null instead of an empty string
+  const [assignedToUserId, setAssignedToUserId] = useState(null);
+  const [dueDate, setDueDate] = useState('');
   const { toast } = useToast();
 
   const handleSubmit = (e) => {
@@ -54,11 +55,13 @@ const CreateTaskModal = ({ isOpen, setIsOpen, projectId, onTaskCreate, workersOn
       title,
       description,
       status: 'Pending',
-      assignedToUserId: assignedToUserId || null, 
+      assignedToUserId: assignedToUserId || null,
+      dueDate: dueDate || null,
     });
     setTitle('');
     setDescription('');
-    setAssignedToUserId(null); // Reset to null
+    setAssignedToUserId(null);
+    setDueDate('');
     setIsOpen(false);
   };
   
@@ -79,7 +82,18 @@ const CreateTaskModal = ({ isOpen, setIsOpen, projectId, onTaskCreate, workersOn
               <Label htmlFor="taskDescription" className="text-right text-muted-foreground">Description</Label>
               <Textarea id="taskDescription" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-3 bg-background/70" placeholder="Detailed task instructions" />
             </div>
-             <div className="grid grid-cols-4 items-center gap-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="dueDate" className="text-right text-muted-foreground">Due Date</Label>
+              <Input 
+                id="dueDate" 
+                type="date" 
+                value={dueDate} 
+                onChange={(e) => setDueDate(e.target.value)} 
+                className="col-span-3 bg-background/70"
+                min={new Date().toISOString().split('T')[0]} // No dates before today
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="assignedTo" className="text-right text-muted-foreground">Assign To</Label>
               <Select value={assignedToUserId} onValueChange={setAssignedToUserId}>
                 <SelectTrigger className="col-span-3 bg-background/70">
@@ -107,10 +121,112 @@ const CreateTaskModal = ({ isOpen, setIsOpen, projectId, onTaskCreate, workersOn
   );
 };
 
+const EditTaskModal = ({ isOpen, setIsOpen, task, onTaskEdit, workersOnProject }) => {
+  const [title, setTitle] = useState(task?.title || '');
+  const [description, setDescription] = useState(task?.description || '');
+  const [assignedToUserId, setAssignedToUserId] = useState(task?.assigned_to_user_id || null);
+  const [dueDate, setDueDate] = useState(task?.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '');
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (task) {
+      setTitle(task.title);
+      setDescription(task.description);
+      setAssignedToUserId(task.assigned_to_user_id);
+      setDueDate(task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '');
+    }
+  }, [task]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!title || !description) {
+      toast({ variant: "destructive", title: "Error", description: "Please fill title and description." });
+      return;
+    }
+    onTaskEdit({
+      id: task.id,
+      title,
+      description,
+      assigned_to_user_id: assignedToUserId || null,
+      due_date: dueDate || null,
+    });
+    setIsOpen(false);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="sm:max-w-[525px] bg-card glassmorphism-card">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary">Edit Task</DialogTitle>
+          <DialogDescription>Update the task details.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="editTaskTitle" className="text-right text-muted-foreground">Title</Label>
+              <Input 
+                id="editTaskTitle" 
+                value={title} 
+                onChange={(e) => setTitle(e.target.value)} 
+                className="col-span-3 bg-background/70" 
+                placeholder="e.g., Install Fixtures" 
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="editTaskDescription" className="text-right text-muted-foreground">Description</Label>
+              <Textarea 
+                id="editTaskDescription" 
+                value={description} 
+                onChange={(e) => setDescription(e.target.value)} 
+                className="col-span-3 bg-background/70" 
+                placeholder="Detailed task instructions" 
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="editDueDate" className="text-right text-muted-foreground">Due Date</Label>
+              <Input 
+                id="editDueDate" 
+                type="date" 
+                value={dueDate} 
+                onChange={(e) => setDueDate(e.target.value)} 
+                className="col-span-3 bg-background/70"
+                min={new Date().toISOString().split('T')[0]} // No dates before today
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="editAssignedTo" className="text-right text-muted-foreground">Assign To</Label>
+              <Select value={assignedToUserId} onValueChange={setAssignedToUserId}>
+                <SelectTrigger className="col-span-3 bg-background/70">
+                  <SelectValue placeholder="Assign to a worker (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {workersOnProject.length > 0 ? (
+                    workersOnProject.map(worker => (
+                      <SelectItem key={worker.id} value={worker.id}>{worker.name}</SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>No workers available</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="bg-secondary/50 hover:bg-secondary/80">Cancel</Button>
+            <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">Save Changes</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 export default function ManagerTaskPage() {
   const { projectId } = useParams();
-  const { tasks, addTask, getProjectById } = useAuth();
+  const { tasks, addTask, getProjectById, fetchTasks } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
   const [project, setProject] = useState(null);
   const [workersOnThisProject, setWorkersOnThisProject] = useState([]);
   const [projectTasks, setProjectTasks] = useState([]);
@@ -132,20 +248,118 @@ export default function ManagerTaskPage() {
     };
 
     // Fetch tasks for this project
-    const fetchTasks = () => {
-      const tasksForProject = tasks.filter(task => task.projectId === projectId);
+    const fetchTasksForProject = () => {
+      const tasksForProject = tasks.filter(task => task.project_id === projectId);
       setProjectTasks(tasksForProject);
     };
 
     fetchProject();
     fetchWorkers();
-    fetchTasks();
-  }, [projectId, getProjectById, tasks]);
+    fetchTasksForProject();
+  }, [projectId, getProjectById, tasks, fetchTasks]);
 
   const getWorkerName = (userId) => {
     if (!userId) return <span className="italic text-muted-foreground">Unassigned</span>;
     const worker = workersOnThisProject.find(user => user.id === userId);
     return worker ? worker.name : <span className="italic text-red-500">Unknown Worker</span>;
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      // Update both local and global state
+      setProjectTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+      await fetchTasks(); // Refresh global tasks state
+      
+      toast({
+        title: "Task Deleted",
+        description: "The task has been successfully deleted.",
+      });
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete the task. Please try again.",
+      });
+    }
+  };
+
+  const handleEditTask = async (taskId) => {
+    const taskToEdit = projectTasks.find(task => task.id === taskId);
+    if (taskToEdit) {
+      setSelectedTask(taskToEdit);
+      setIsEditModalOpen(true);
+    }
+  };
+
+  const handleTaskEdit = async (updatedTaskData) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: updatedTaskData.title,
+          description: updatedTaskData.description,
+          assigned_to_user_id: updatedTaskData.assigned_to_user_id,
+          due_date: updatedTaskData.due_date
+        })
+        .eq('id', updatedTaskData.id);
+
+      if (error) throw error;
+
+      // Update both local and global state
+      setProjectTasks(prevTasks => 
+        prevTasks.map(task => 
+          task.id === updatedTaskData.id ? { ...task, ...updatedTaskData } : task
+        )
+      );
+      await fetchTasks(); // Refresh global tasks state
+
+      toast({
+        title: "Task Updated",
+        description: "The task has been successfully updated.",
+      });
+    } catch (error) {
+      console.error('Error updating task:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update the task. Please try again.",
+      });
+    }
+  };
+
+  const handleMarkAsDone = async (taskId) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      // Update both local and global state
+      setProjectTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+      await fetchTasks(); // Refresh global tasks state
+
+      toast({
+        title: "Task Completed",
+        description: "The completed task has been removed from the list.",
+      });
+    } catch (error) {
+      console.error('Error removing completed task:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to remove the completed task. Please try again.",
+      });
+    }
   };
 
   if (!project) {
@@ -194,6 +408,14 @@ export default function ManagerTaskPage() {
         workersOnProject={workersOnThisProject}
       />
 
+      <EditTaskModal
+        isOpen={isEditModalOpen}
+        setIsOpen={setIsEditModalOpen}
+        task={selectedTask}
+        onTaskEdit={handleTaskEdit}
+        workersOnProject={workersOnThisProject}
+      />
+
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -218,26 +440,63 @@ export default function ManagerTaskPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 * index + 0.3, duration: 0.4 }}
               >
-                <Card className="glassmorphism-card h-full flex flex-col">
+                <Card className={`glassmorphism-card h-full flex flex-col ${
+                  task.status === 'Completed' ? 'bg-green-50/50 border-green-200' : ''
+                }`}>
                   <CardHeader>
-                    <CardTitle className="text-xl text-primary">{task.title}</CardTitle>
-                    <CardDescription className="text-muted-foreground">Status: {task.status}</CardDescription>
+                    <CardTitle className={`text-xl ${
+                      task.status === 'Completed' ? 'text-green-600' : 'text-primary'
+                    }`}>
+                      {task.title}
+                    </CardTitle>
+                    <CardDescription className={`${
+                      task.status === 'Completed' ? 'text-green-600' : 'text-muted-foreground'
+                    }`}>
+                      Status: {task.status}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="flex-grow">
                     <p className="text-sm mb-2">{task.description}</p>
                     <p className="text-sm flex items-center">
-                      <User size={14} className="mr-2 text-tertiary" /> 
-                      <span className="font-semibold text-muted-foreground">Assigned to:</span>&nbsp; 
-                      {getWorkerName(task.assignedToUserId)}
+                      <User size={14} className={`mr-2 ${
+                        task.status === 'Completed' ? 'text-green-600' : 'text-tertiary'
+                      }`} /> 
+                      <span className={`font-semibold ${
+                        task.status === 'Completed' ? 'text-green-600' : 'text-muted-foreground'
+                      }`}>Assigned to:</span>&nbsp; 
+                      {getWorkerName(task.assigned_to_user_id)}
                     </p>
                   </CardContent>
                   <CardFooter className="border-t border-border/20 flex justify-end space-x-2 pt-4">
-                    <Button variant="ghost" size="sm" className="hover:bg-primary/10 text-primary">
-                      <Edit size={16} className="mr-1" /> Edit
-                    </Button>
-                    <Button variant="ghost" size="sm" className="hover:bg-destructive/10 text-destructive">
-                      <Trash2 size={16} className="mr-1" /> Delete
-                    </Button>
+                    {task.status === 'Completed' ? (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="hover:bg-green-100 text-green-600"
+                        onClick={() => handleMarkAsDone(task.id)}
+                      >
+                        <CheckCircle2 size={16} className="mr-1" /> Done
+                      </Button>
+                    ) : (
+                      <>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="hover:bg-primary/10 text-primary"
+                          onClick={() => handleEditTask(task.id)}
+                        >
+                          <Edit size={16} className="mr-1" /> Edit
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="hover:bg-destructive/10 text-destructive"
+                          onClick={() => handleDeleteTask(task.id)}
+                        >
+                          <Trash2 size={16} className="mr-1" /> Delete
+                        </Button>
+                      </>
+                    )}
                   </CardFooter>
                 </Card>
               </motion.div>

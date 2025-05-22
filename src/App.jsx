@@ -20,6 +20,8 @@ import AttendancePage from '@/pages/worker/AttendancePage';
 import SystemSettingsPage from '@/pages/admin/SystemSettingsPage';
 import ProjectReadOnlyPage from '@/pages/ProjectReadOnlyPage';
 import ResourceRequestsPage from '@/pages/admin/ResourceRequestsPage';
+import ManagerPendingTasksPage from '@/pages/manager/ManagerPendingTasksPage';
+import WorkerTasksPage from '@/pages/worker/WorkerTasksPage';
 
 function AppContent() {
   const { user } = useAuth();
@@ -40,6 +42,7 @@ function AppContent() {
         <Route path="/project_manager/projects" element={<MainLayout><ManagerProjectManagementPage /></MainLayout>} />
         <Route path="/project_manager/workers" element={<MainLayout><WorkerManagementPage /></MainLayout>} />
         <Route path="/project_manager/tasks/:projectId" element={<MainLayout><ManagerTaskPage /></MainLayout>} />
+        <Route path="/project_manager/pending-tasks" element={<MainLayout><ManagerPendingTasksPage /></MainLayout>} />
         {/* Ruta de solo lectura para proyectos */}
         <Route path="/project_manager/projects/:id/view" element={<MainLayout><ProjectReadOnlyPage /></MainLayout>} />
       </Route>
@@ -47,6 +50,7 @@ function AppContent() {
         <Route path="/worker/dashboard" element={<MainLayout><WorkerDashboardPage /></MainLayout>} />
         <Route path="/worker/site" element={<MainLayout><WorkerSiteViewPage /></MainLayout>} />
         <Route path="/worker/attendance" element={<MainLayout><AttendancePage /></MainLayout>} />
+        <Route path="/worker/tasks" element={<MainLayout><WorkerTasksPage /></MainLayout>} />
       </Route>
 
       <Route path="/" element={user ? <Navigate to={`/${user.role}/dashboard`} replace /> : <Navigate to="/login" replace />} />

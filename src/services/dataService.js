@@ -20,7 +20,11 @@ import { supabase } from '@/lib/supabaseClient';
 
     export const createProject = async (projectData) => {
       try {
-        const { data, error } = await supabase.from('projects').insert([{ ...projectData, radius: projectData.radius || 100 }]).select();
+        const { data, error } = await supabase.from('projects').insert([{ 
+          ...projectData, 
+          radius: projectData.radius || 100,
+          manager_id: projectData.manager_id
+        }]).select();
         if (error) throw error;
         return data;
       } catch (error) {
@@ -40,7 +44,19 @@ import { supabase } from '@/lib/supabaseClient';
 
     export const createTask = async (taskData) => {
       try {
-        const { data, error } = await supabase.from('tasks').insert([taskData]).select();
+        // Transform the data to match database column names
+        const transformedData = {
+          title: taskData.title,
+          description: taskData.description,
+          status: taskData.status || 'Pending',
+          project_id: taskData.projectId,
+          assigned_to_user_id: taskData.assignedToUserId,
+          created_by_user_id: taskData.created_by_user_id,
+          completion_photo_url: taskData.completion_photo_url,
+          due_date: taskData.dueDate
+        };
+
+        const { data, error } = await supabase.from('tasks').insert([transformedData]).select();
         if (error) throw error;
         return data;
       } catch (error) {
@@ -114,7 +130,7 @@ import { supabase } from '@/lib/supabaseClient';
             locationName: updatedProject.locationName,
             latitude: updatedProject.latitude,
             longitude: updatedProject.longitude,
-            manager: updatedProject.manager,
+            manager_id: updatedProject.manager_id,
             status: updatedProject.status || 'Planning',
             radius: updatedProject.radius || 100
           })
