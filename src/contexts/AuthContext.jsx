@@ -200,7 +200,12 @@ const AuthProviderInternal = ({ children }) => {
     try {
       const newProjects = await createProjectService(projectData);
       toast({title: "Project Created", description: `${projectData.name} has been successfully created.`});
-      setProjects(prev => [...prev, ...(newProjects || [])]);
+      if (newProjects) {
+        setProjects(prev => [...prev, newProjects]);
+      } else {
+        console.warn("Project created but returned no data.", projectData);
+        loadInitialData();
+      }
     } catch (error) {
       handleError(error, "Project Creation Failed");
     } finally {
@@ -211,15 +216,29 @@ const AuthProviderInternal = ({ children }) => {
   const addTask = async (taskData) => {
     if (!user) {
       handleError(new Error("User not authenticated"), "Task Creation Failed", "You must be logged in to create tasks.");
-      return;
+      return null;
     }
     setLoading(true);
     try {
-      const newTasks = await createTaskService({...taskData, created_by_user_id: user.id });
+      // Map frontend property names to database column names
+      const transformedTaskData = {
+        project_id: taskData.projectId,
+        title: taskData.title,
+        description: taskData.description,
+        status: taskData.status || 'Pending',
+        assigned_to_user_id: taskData.assignedToUserId, // Corrected column name
+        due_date: taskData.dueDate,
+        created_by_user_id: user.id,
+      };
+      const newTask = await createTaskService(transformedTaskData);
       toast({title: "Task Created", description: `Task "${taskData.title}" has been successfully created.`});
-      setTasks(prev => [...prev, ...(newTasks || [])]);
+      // Update global tasks state by adding the new task (more performant than refetching all)
+      setTasks(prev => [...prev, newTask]);
+
+      return newTask;
     } catch (error) {
       handleError(error, "Task Creation Failed");
+      return null;
     } finally {
       setLoading(false);
     }
@@ -420,7 +439,11 @@ const AuthProviderInternal = ({ children }) => {
     }, [handleError]),
     fetchTasks: useCallback(async () => {
       setLoading(true);
-      try { setTasks(await fetchAllTasks()); }
+      try {
+        const fetchedTasks = await fetchAllTasks();
+        console.log("AuthContext: fetchTasks executed. Fetched tasks count:", fetchedTasks.length);
+        setTasks(fetchedTasks);
+      } 
       catch (e) { handleError(e, "Error fetching tasks"); }
       finally { setLoading(false); }
     }, [handleError]),

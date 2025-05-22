@@ -37,32 +37,38 @@ async function fetchAssignedWorkers(projectId) {
   return workers;
 }
 
-const CreateTaskModal = ({ isOpen, setIsOpen, projectId, onTaskCreate, workersOnProject }) => {
+const CreateTaskModal = ({ isOpen, setIsOpen, projectId, onTaskCreate, workersOnProject, onTaskCreatedLocally }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [assignedToUserId, setAssignedToUserId] = useState(null);
   const [dueDate, setDueDate] = useState('');
   const { toast } = useToast();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title || !description) {
       toast({ variant: "destructive", title: "Error", description: "Please fill title and description." });
       return;
     }
-    onTaskCreate({
+    const newTaskData = {
       projectId,
       title,
       description,
       status: 'Pending',
       assignedToUserId: assignedToUserId || null,
       dueDate: dueDate || null,
-    });
-    setTitle('');
-    setDescription('');
-    setAssignedToUserId(null);
-    setDueDate('');
-    setIsOpen(false);
+    };
+    
+    const createdTask = await onTaskCreate(newTaskData);
+
+    if (createdTask) {
+      onTaskCreatedLocally(createdTask);
+      setTitle('');
+      setDescription('');
+      setAssignedToUserId(null);
+      setDueDate('');
+      setIsOpen(false);
+    }
   };
   
   return (
@@ -234,12 +240,10 @@ export default function ManagerTaskPage() {
 
   useEffect(() => {
     // Fetch project details
-    const fetchProject = () => {
-      const fetchedProject = getProjectById(projectId);
-      if (fetchedProject) {
-        setProject(fetchedProject);
-      }
-    };
+    const fetchedProject = getProjectById(projectId);
+    if (fetchedProject) {
+      setProject(fetchedProject);
+    }
 
     // Fetch workers assigned to this project (directo de Supabase)
     const fetchWorkers = async () => {
@@ -247,16 +251,18 @@ export default function ManagerTaskPage() {
       setWorkersOnThisProject(workers);
     };
 
-    // Fetch tasks for this project
-    const fetchTasksForProject = () => {
-      const tasksForProject = tasks.filter(task => task.project_id === projectId);
-      setProjectTasks(tasksForProject);
-    };
-
-    fetchProject();
     fetchWorkers();
-    fetchTasksForProject();
-  }, [projectId, getProjectById, tasks, fetchTasks]);
+
+  }, [projectId, getProjectById]);
+
+  useEffect(() => {
+    // Filter tasks whenever the global tasks list or projectId changes
+    console.log("ManagerTaskPage: tasks, projectId, or fetchTasks changed.");
+    console.log("ManagerTaskPage: Current global tasks state:", tasks);
+    const tasksForProject = tasks.filter(task => String(task.project_id) === String(projectId));
+    console.log("ManagerTaskPage: Filtered tasks for project:", tasksForProject);
+    setProjectTasks(tasksForProject);
+  }, [tasks, projectId, fetchTasks]);
 
   const getWorkerName = (userId) => {
     if (!userId) return <span className="italic text-muted-foreground">Unassigned</span>;
@@ -362,6 +368,10 @@ export default function ManagerTaskPage() {
     }
   };
 
+  const handleTaskCreatedLocally = (newTask) => {
+    setProjectTasks(prevTasks => [...prevTasks, newTask]);
+  };
+
   if (!project) {
     return (
       <div className="container mx-auto py-8 px-4 md:px-6 text-center">
@@ -406,6 +416,7 @@ export default function ManagerTaskPage() {
         projectId={projectId} 
         onTaskCreate={addTask}
         workersOnProject={workersOnThisProject}
+        onTaskCreatedLocally={handleTaskCreatedLocally}
       />
 
       <EditTaskModal
