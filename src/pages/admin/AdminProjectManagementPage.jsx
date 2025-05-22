@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { PlusCircle, Search, Edit, Trash2, MapPin, Globe } from 'lucide-react';
+import { PlusCircle, Search, Edit, Trash2, MapPin, Globe, Users, Building2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Marker, Circle } from '@react-google-maps/api';
 import Maps from '@/lib/Maps';
+import { Badge } from '@/components/ui/badge';
+import { fetchManagers } from '@/services/dataService';
 
 // Modal para crear proyecto
 const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
@@ -23,13 +25,12 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
   const [loadingManagers, setLoadingManagers] = useState(false);
   const [radius, setRadius] = useState(100);
   const { toast } = useToast();
-  const { fetchProjectManagers } = useAuth();
 
   useEffect(() => {
     const loadManagers = async () => {
       setLoadingManagers(true);
       try {
-        const managersList = await fetchProjectManagers();
+        const managersList = await fetchManagers();
         setManagers(managersList);
       } catch (error) {
         toast({ variant: "destructive", title: "Error", description: "Failed to load project managers." });
@@ -38,7 +39,7 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
       }
     };
     loadManagers();
-  }, [fetchProjectManagers, toast]);
+  }, [toast]);
 
   const handleMapClick = (e) => {
     setLatitude(e.latLng.lat());
@@ -123,7 +124,7 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
                 >
                   <option value="" disabled>Select a manager</option>
                   {managers.map(manager => (
-                    <option key={manager.id} value={manager.name}>{manager.name}</option>
+                    <option key={manager.id} value={manager.id}>{manager.name}</option>
                   ))}
                 </select>
               )}
@@ -200,7 +201,6 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
   const [loadingManagers, setLoadingManagers] = useState(false);
   const [radius, setRadius] = useState(100);
   const { toast } = useToast();
-  const { fetchProjectManagers } = useAuth();
 
   useEffect(() => {
     if (project) {
@@ -218,7 +218,7 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
     const loadManagers = async () => {
       setLoadingManagers(true);
       try {
-        const managersList = await fetchProjectManagers();
+        const managersList = await fetchManagers();
         setManagers(managersList);
       } catch (error) {
         toast({ variant: "destructive", title: "Error", description: "Failed to load project managers." });
@@ -227,7 +227,7 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
       }
     };
     loadManagers();
-  }, [fetchProjectManagers, toast]);
+  }, [toast]);
 
   const handleMapClick = (e) => {
     setLatitude(e.latLng.lat());
@@ -305,7 +305,7 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
                 >
                   <option value="" disabled>Select a manager</option>
                   {managers.map(manager => (
-                    <option key={manager.id} value={manager.name}>{manager.name}</option>
+                    <option key={manager.id} value={manager.id}>{manager.name}</option>
                   ))}
                 </select>
               )}
@@ -376,6 +376,9 @@ export default function AdminProjectManagementPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [mapCenter, setMapCenter] = useState({ lat: 4.8133, lng: -75.6967 });
+  const [mapZoom, setMapZoom] = useState(12);
 
   const filteredProjects = projects.filter(project => 
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -398,6 +401,12 @@ export default function AdminProjectManagementPage() {
     }
   };
 
+  const handleProjectClick = (project) => {
+    setSelectedProject(project);
+    setMapCenter({ lat: project.latitude, lng: project.longitude });
+    setMapZoom(14);
+  };
+
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
       <motion.div 
@@ -417,91 +426,200 @@ export default function AdminProjectManagementPage() {
       <CreateProjectModal isOpen={isModalOpen} setIsOpen={setIsModalOpen} onProjectCreate={addProject} />
       <EditProjectModal isOpen={isEditModalOpen} setIsOpen={setIsEditModalOpen} project={projectToEdit} onProjectUpdate={handleProjectUpdate} />
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2, duration: 0.5 }}
-      >
-        <Card className="glassmorphism-card mb-8">
-          <CardHeader>
-            <CardTitle>Filter Projects</CardTitle>
-            <CardDescription>Search projects by name or location.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-grow">
-              <Input 
-                type="search" 
-                placeholder="Search projects..." 
-                className="pl-10 bg-background/70" 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Projects List Section */}
+        <div className="space-y-6">
+          <Card className="glassmorphism-card">
+            <CardHeader>
+              <CardTitle>Filter Projects</CardTitle>
+              <CardDescription>Search projects by name or location.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-grow">
+                <Input 
+                  type="search" 
+                  placeholder="Search projects..." 
+                  className="pl-10 bg-background/70" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              </div>
+            </CardContent>
+          </Card>
 
-        {filteredProjects.length === 0 && searchTerm && (
-             <motion.div
-                initial={{ opacity: 0, y: 10 }}
+          <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+            {filteredProjects.map((project, index) => (
+              <motion.div
+                key={project.id}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-center py-8"
-            >
-                <p className="text-muted-foreground text-lg">No projects found matching "{searchTerm}".</p>
-            </motion.div>
-        )}
+                transition={{ delay: 0.1 * index, duration: 0.4 }}
+              >
+                <Card 
+                  className={`glassmorphism-card cursor-pointer transition-all duration-200 ${
+                    selectedProject?.id === project.id ? 'ring-2 ring-primary' : 'hover:shadow-lg'
+                  }`}
+                  onClick={() => handleProjectClick(project)}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-xl text-primary">{project.name}</CardTitle>
+                        <CardDescription className="flex items-center text-muted-foreground">
+                          <MapPin size={14} className="mr-1" /> {project.locationName}
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="capitalize">
+                          {project.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Manager</p>
+                        <p className="font-medium">{project.manager}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Radius</p>
+                        <p className="font-medium">{project.radius}m</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="border-t border-border/20 flex justify-end space-x-2 pt-4">
+                    <Button variant="ghost" size="sm" className="hover:bg-primary/10 text-primary" onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditClick(project);
+                    }}>
+                      <Edit size={16} className="mr-1" /> Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="hover:bg-destructive/10 text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteClick(project.id);
+                      }}
+                    >
+                      <Trash2 size={16} className="mr-1" /> Delete
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </motion.div>
+            ))}
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredProjects.map((project, index) => (
-            <motion.div
-              key={project.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 * index + 0.3, duration: 0.4 }}
-            >
-              <Card className="glassmorphism-card h-full flex flex-col">
-                <CardHeader>
-                  <CardTitle className="text-xl text-primary">{project.name}</CardTitle>
-                  <CardDescription className="flex items-center text-muted-foreground">
-                    <MapPin size={14} className="mr-1" /> {project.locationName}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                  <p className="text-sm mb-2">{project.description}</p>
-                  <p className="text-sm mb-1"><span className="font-semibold text-muted-foreground">Status:</span> {project.status}</p>
-                  <p className="text-sm mb-1"><span className="font-semibold text-muted-foreground">Manager:</span> {project.manager}</p>
-                  <p className="text-sm"><span className="font-semibold text-muted-foreground">Coordinates:</span> Lat: {project.latitude.toFixed(4)}, Lon: {project.longitude.toFixed(4)}</p>
-                   <p className="text-sm text-muted-foreground mt-1">(Radius: {project.radius}m)</p>
-                </CardContent>
-                <CardFooter className="border-t border-border/20 flex justify-end space-x-2 pt-4">
-                   <Button variant="ghost" size="sm" className="hover:bg-primary/10 text-primary" onClick={() => handleEditClick(project)}>
-                    <Edit size={16} className="mr-1" /> Edit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="hover:bg-destructive/10 text-destructive"
-                    onClick={() => handleDeleteClick(project.id)}
-                  >
-                    <Trash2 size={16} className="mr-1" /> Delete
-                  </Button>
-                </CardFooter>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-         {filteredProjects.length === 0 && !searchTerm && (
-             <motion.div
+            {filteredProjects.length === 0 && (
+              <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="text-center py-12"
-            >
+              >
                 <Globe size={48} className="mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground text-xl">No projects created yet.</p>
-                <p className="text-muted-foreground">Click "Create New Project" to get started.</p>
-            </motion.div>
-        )}
-      </motion.div>
+                <p className="text-muted-foreground text-xl">No projects found.</p>
+                {searchTerm && <p className="text-muted-foreground">Try a different search term.</p>}
+                {!searchTerm && <p className="text-muted-foreground">Click "Create New Project" to get started.</p>}
+              </motion.div>
+            )}
+          </div>
+        </div>
+
+        {/* Map Section */}
+        <div className="space-y-6">
+          <Card className="glassmorphism-card h-[600px]">
+            <CardHeader>
+              <CardTitle>Project Locations</CardTitle>
+              <CardDescription>Click on a project to view its details</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Maps
+                mapContainerStyle={{ width: '100%', height: '100%' }}
+                center={mapCenter}
+                zoom={mapZoom}
+                mapId="5795a66c547e6becbb38a780"
+              >
+                {filteredProjects.map((project) => (
+                  <React.Fragment key={project.id}>
+                    <Marker
+                      position={{ lat: project.latitude, lng: project.longitude }}
+                      onClick={() => handleProjectClick(project)}
+                      icon={{
+                        url: selectedProject?.id === project.id 
+                          ? 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                          : 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                        scaledSize: new window.google.maps.Size(40, 40)
+                      }}
+                    />
+                    <Circle
+                      center={{ lat: project.latitude, lng: project.longitude }}
+                      radius={project.radius}
+                      options={{
+                        fillColor: selectedProject?.id === project.id ? '#3b82f6' : '#ef4444',
+                        fillOpacity: 0.2,
+                        strokeColor: selectedProject?.id === project.id ? '#3b82f6' : '#ef4444',
+                        strokeOpacity: 0.6,
+                        strokeWeight: 2,
+                        clickable: false,
+                        draggable: false,
+                        editable: false,
+                        visible: true,
+                      }}
+                    />
+                  </React.Fragment>
+                ))}
+              </Maps>
+            </CardContent>
+          </Card>
+
+          {/* Selected Project Details */}
+          {selectedProject && (
+            <Card className="glassmorphism-card">
+              <CardHeader>
+                <CardTitle>Project Details</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Name</p>
+                    <p className="font-medium">{selectedProject.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Location</p>
+                    <p className="font-medium">{selectedProject.locationName}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <p className="font-medium capitalize">{selectedProject.status}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Manager</p>
+                    <p className="font-medium">{selectedProject.manager}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Coordinates</p>
+                    <p className="font-medium">
+                      {selectedProject.latitude.toFixed(4)}, {selectedProject.longitude.toFixed(4)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Radius</p>
+                    <p className="font-medium">{selectedProject.radius}m</p>
+                  </div>
+                </div>
+                {selectedProject.description && (
+                  <div className="mt-4">
+                    <p className="text-sm text-muted-foreground">Description</p>
+                    <p className="font-medium">{selectedProject.description}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
