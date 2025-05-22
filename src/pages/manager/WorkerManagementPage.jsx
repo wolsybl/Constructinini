@@ -9,7 +9,7 @@ import { UserPlus, Search, Edit2, Briefcase, Phone, ChevronRight } from 'lucide-
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { fetchAllWorkers } from '@/services/workerService'; // Import the new service
+import { fetchAllWorkers } from '@/services/workerService';
 
 const AssignProjectModal = ({ isOpen, setIsOpen, worker, projects, onAssign }) => {
   const [selectedProjectId, setSelectedProjectId] = useState(worker.assignedProjectId || '');
@@ -58,9 +58,8 @@ const AssignProjectModal = ({ isOpen, setIsOpen, worker, projects, onAssign }) =
   );
 };
 
-
 export default function WorkerManagementPage() {
-  const { projects, projectAssignments, assignWorkerToProject } = useAuth(); // Remove allUsers from here
+  const { projects, projectAssignments, assignWorkerToProject } = useAuth();
   const { toast } = useToast();
   const [workers, setWorkers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -70,7 +69,7 @@ export default function WorkerManagementPage() {
   useEffect(() => {
     const loadWorkers = async () => {
       try {
-        const fetchedWorkers = await fetchAllWorkers(); // Fetch workers from the new service
+        const fetchedWorkers = await fetchAllWorkers();
         setWorkers(fetchedWorkers);
       } catch (error) {
         console.error("Error loading workers:", error);
@@ -82,18 +81,22 @@ export default function WorkerManagementPage() {
   }, [toast]);
 
   const workersWithAssignments = workers.map(worker => {
-    const assignment = projectAssignments.find(pa => pa.userId === worker.id);
-    const project = assignment ? projects.find(p => p.id === assignment.projectId) : null;
+    // Find the project assignment for this worker
+    const assignment = projectAssignments.find(pa => pa.user_id === worker.id);
+    
+    // Find the project details if there's an assignment
+    const project = assignment ? projects.find(p => p.id === assignment.project_id) : null;
+    
     return {
       ...worker,
-      assignedProjectId: assignment ? assignment.projectId : null,
+      assignedProjectId: assignment ? assignment.project_id : null,
       currentProject: project ? project.name : 'Unassigned',
     };
   });
 
   const filteredWorkers = workersWithAssignments.filter(worker =>
     worker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    worker.skills?.toLowerCase().includes(searchTerm.toLowerCase()) || // Ensure skills exist
+    (worker.skills?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
     worker.currentProject.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -102,8 +105,13 @@ export default function WorkerManagementPage() {
     setIsModalOpen(true);
   };
 
-  const handleAssignProject = (workerId, projectId) => {
-    assignWorkerToProject(workerId, projectId);
+  const handleAssignProject = async (workerId, projectId) => {
+    try {
+      await assignWorkerToProject(workerId, projectId);
+      toast({ title: "Success", description: "Worker assigned to project successfully." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to assign worker to project." });
+    }
   };
 
   return (
@@ -128,7 +136,7 @@ export default function WorkerManagementPage() {
         <Card className="glassmorphism-card mb-8">
           <CardHeader>
             <CardTitle>Filter Workers</CardTitle>
-            <CardDescription>Search workers by name.</CardDescription>
+            <CardDescription>Search workers by name, skills, or project.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-grow">
@@ -169,16 +177,27 @@ export default function WorkerManagementPage() {
                   <CardTitle className="text-xl text-primary">{worker.name}</CardTitle>
                 </CardHeader>
                 <CardContent className="flex-grow space-y-2">
-                  <p className="text-sm flex items-center"><Briefcase size={14} className="mr-2 text-tertiary" /> 
+                  <p className="text-sm flex items-center">
+                    <Briefcase size={14} className="mr-2 text-tertiary" /> 
                     <span className="font-semibold">Current Project:</span>&nbsp; 
-                    <span className={worker.currentProject === 'Unassigned' ? 'italic text-muted-foreground' : ''}>{worker.currentProject}</span>
+                    <span className={worker.currentProject === 'Unassigned' ? 'italic text-muted-foreground' : 'text-primary'}>
+                      {worker.currentProject}
+                    </span>
                   </p>
                   {worker.phone && (
-                    <p className="text-sm flex items-center"><Phone size={14} className="mr-2 text-tertiary" /> <span className="font-semibold">Phone:</span> {worker.phone}</p>
+                    <p className="text-sm flex items-center">
+                      <Phone size={14} className="mr-2 text-tertiary" /> 
+                      <span className="font-semibold">Phone:</span> {worker.phone}
+                    </p>
                   )}
                 </CardContent>
                 <CardFooter className="p-4 border-t border-border/20 flex justify-end pt-4">
-                  <Button onClick={() => handleOpenModal(worker)} variant="outline" size="sm" className="hover:bg-primary/10 text-primary border-primary/50">
+                  <Button 
+                    onClick={() => handleOpenModal(worker)} 
+                    variant="outline" 
+                    size="sm" 
+                    className="hover:bg-primary/10 text-primary border-primary/50"
+                  >
                     <Edit2 size={16} className="mr-1" /> Manage Assignment
                   </Button>
                 </CardFooter>

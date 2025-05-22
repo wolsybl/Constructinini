@@ -1,36 +1,83 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FolderKanban, ListChecks, Users2, Building } from 'lucide-react';
+import { FolderKanban, ListChecks, Users2, Building, Calendar, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function ProjectManagerDashboardPage() {
-  const { projects, tasks, user } = useAuth(); // Fetch projects and tasks from context
+  const { projects, tasks, user, projectAssignments } = useAuth();
   const [activeProjects, setActiveProjects] = useState(0);
   const [pendingTasks, setPendingTasks] = useState(0);
   const [teamMembers, setTeamMembers] = useState(0);
 
+  const getProgressColor = (progress) => {
+    if (progress >= 75) return 'bg-green-500';
+    if (progress >= 50) return 'bg-blue-500';
+    if (progress >= 25) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'active':
+        return 'text-green-500';
+      case 'completed':
+        return 'text-blue-500';
+      case 'on hold':
+        return 'text-yellow-500';
+      case 'cancelled':
+        return 'text-red-500';
+      default:
+        return 'text-gray-500';
+    }
+  };
+
+  const projectsWithProgress = useMemo(() => {
+    return projects
+      .filter(project => project.manager_id === user?.id)
+      .map(project => {
+        const projectTasks = tasks.filter(task => task.project_id === project.id);
+        const completedTasks = projectTasks.filter(task => task.status === 'Completed').length;
+        const totalTasks = projectTasks.length;
+        const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        
+        return {
+          ...project,
+          progress,
+          completedTasks,
+          totalTasks,
+          pendingTasks: totalTasks - completedTasks
+        };
+      });
+  }, [projects, tasks, user]);
+
   useEffect(() => {
+    if (!user || !projects || !tasks || !projectAssignments) return;
+
     // Calculate active projects assigned to the current manager
     const managerProjects = projects.filter(
-      (project) => project.manager === user?.name
+      (project) => project.manager_id === user.id
     );
     setActiveProjects(managerProjects.length);
 
-    // Calculate pending tasks assigned to the current manager
+    // Calculate pending tasks for the manager's projects
+    const managerProjectIds = managerProjects.map(p => p.id);
     const managerTasks = tasks.filter(
-      (task) => task.assignedTo === user?.name && task.status !== 'Completed'
+      (task) => managerProjectIds.includes(task.project_id) && task.status !== 'Completed'
     );
     setPendingTasks(managerTasks.length);
 
-    // Calculate team members assigned to the manager's projects
+    // Calculate unique team members using project_assignments
+    const managerProjectIdsSet = new Set(managerProjectIds);
     const uniqueTeamMembers = new Set(
-      managerProjects.flatMap((project) => project.teamMembers || [])
+      projectAssignments
+        .filter(assignment => managerProjectIdsSet.has(assignment.project_id))
+        .map(assignment => assignment.user_id)
     );
     setTeamMembers(uniqueTeamMembers.size);
-  }, [projects, tasks, user]);
+  }, [projects, tasks, user, projectAssignments]);
 
   const projectStats = [
     {
@@ -130,26 +177,67 @@ export default function ProjectManagerDashboardPage() {
             <CardTitle className="text-xl">Project Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">A list or chart of your projects will be displayed here...</p>
-            <ul className="mt-4 space-y-2">
-              {projects
-                .filter(project => project.manager === user?.name)
-                .map(project => (
-                  <li
-                    key={project.id}
-                    className="text-sm p-2 bg-secondary/30 rounded-md flex justify-between items-center"
-                  >
-                    <span>{project.name}</span>
-                    <span className="ml-2 font-semibold text-primary">{project.progress ?? 0}% Complete</span>
-                    <Link
-                      to={`/project_manager/projects/${project.id}/view`}
-                      className="ml-4 text-xs underline text-accent hover:text-accent-foreground"
-                    >
-                      View Details
-                    </Link>
-                  </li>
-                ))}
-            </ul>
+            <div className="space-y-6">
+              {projectsWithProgress.map((project, index) => (
+                <motion.div
+                  key={project.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="p-4 bg-secondary/30 rounded-lg"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-primary">{project.name}</h3>
+                      <p className="text-sm text-muted-foreground">{project.location_name}</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(project.status)} bg-opacity-10`}>
+                      {project.status || 'Not Set'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center">
+                          <Calendar size={14} className="mr-1 text-tertiary" />
+                          <span>Start: {new Date(project.start_date).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Clock size={14} className="mr-1 text-tertiary" />
+                          <span>Due: {new Date(project.due_date).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-green-500">{project.completedTasks} completed</span>
+                        <span className="text-sm text-muted-foreground">/</span>
+                        <span className="text-sm font-semibold">{project.totalTasks} total</span>
+                      </div>
+                    </div>
+
+                    <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${project.progress}%` }}
+                        transition={{ duration: 1, ease: "easeOut" }}
+                        className={`h-full ${getProgressColor(project.progress)}`}
+                      />
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-muted-foreground">{project.pendingTasks} tasks pending</span>
+                      <span className="text-xs text-muted-foreground">{project.progress}% complete</span>
+                      <Link
+                        to={`/project_manager/projects/${project.id}/view`}
+                        className="text-xs text-accent hover:text-accent-foreground hover:underline"
+                      >
+                        View Details
+                      </Link>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </motion.div>

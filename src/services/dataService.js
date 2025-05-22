@@ -10,100 +10,129 @@ import { supabase } from '@/lib/supabaseClient';
 
     export const fetchAllProjects = async () => {
       try {
-        const { data, error } = await supabase.from('projects').select('*');
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*, profiles:manager_id (name)');
         if (error) throw error;
-        return data || [];
+        const projectsWithManagerName = data.map(project => ({
+          ...project,
+          manager: project.profiles ? project.profiles.name : 'Unassigned'
+        }));
+        return projectsWithManagerName || [];
       } catch (error) {
         handleSupabaseError(error, 'fetchAllProjects');
+        return [];
       }
     };
 
     export const createProject = async (projectData) => {
       try {
-        const { data, error } = await supabase.from('projects').insert([{ 
-          ...projectData, 
-          radius: projectData.radius || 100,
-          manager_id: projectData.manager_id
-        }]).select();
+        const { data, error } = await supabase
+          .from('projects')
+          .insert([projectData])
+          .select()
+          .single();
         if (error) throw error;
         return data;
       } catch (error) {
         handleSupabaseError(error, 'createProject');
+        throw error;
       }
     };
 
     export const fetchAllTasks = async () => {
       try {
-        const { data, error } = await supabase.from('tasks').select('*');
+        const { data, error } = await supabase
+          .from('tasks')
+          .select(`
+            *,
+            profiles:assigned_to_user_id (
+              name
+            ),
+            projects (
+              name,
+              location_name
+            )
+          `);
         if (error) throw error;
-        return data || [];
+        const tasksWithDetails = data.map(task => ({
+          ...task,
+          assignedUserName: task.profiles ? task.profiles.name : 'Unassigned',
+          projectName: task.projects ? task.projects.name : 'Unknown Project',
+          projectLocation: task.projects ? task.projects.location_name : 'Unknown Location'
+        }));
+        return tasksWithDetails || [];
       } catch (error) {
         handleSupabaseError(error, 'fetchAllTasks');
+        return [];
       }
     };
 
     export const createTask = async (taskData) => {
       try {
-        // Transform the data to match database column names
-        const transformedData = {
-          title: taskData.title,
-          description: taskData.description,
-          status: taskData.status || 'Pending',
-          project_id: taskData.projectId,
-          assigned_to_user_id: taskData.assignedToUserId,
-          created_by_user_id: taskData.created_by_user_id,
-          completion_photo_url: taskData.completion_photo_url,
-          due_date: taskData.dueDate
-        };
-
-        const { data, error } = await supabase.from('tasks').insert([transformedData]).select();
+        const { data, error } = await supabase
+          .from('tasks')
+          .insert([taskData])
+          .select()
+          .single();
         if (error) throw error;
         return data;
       } catch (error) {
         handleSupabaseError(error, 'createTask');
+        throw error;
       }
     };
     
     export const fetchAllProjectAssignments = async () => {
       try {
-        const { data, error } = await supabase.from('project_assignments').select('*');
+        const { data, error } = await supabase
+          .from('project_assignments')
+          .select('*, profiles:user_id (name), projects (name)');
         if (error) throw error;
         return data || [];
       } catch (error) {
         handleSupabaseError(error, 'fetchAllProjectAssignments');
+        return [];
       }
     };
 
     export const assignWorker = async (userId, projectId) => {
       try {
-        const { data: existing, error: fetchError } = await supabase
+        const { data: existing, error: checkError } = await supabase
           .from('project_assignments')
           .select('id')
           .eq('user_id', userId)
           .maybeSingle();
 
-        if (fetchError && fetchError.code !== 'PGRST116') {
-          throw fetchError;
-        }
+        if (checkError && checkError.code !== 'PGRST116') throw checkError;
 
         if (existing) {
-          const { data, error } = await supabase
+          const { error: updateError } = await supabase
             .from('project_assignments')
             .update({ project_id: projectId })
-            .eq('user_id', userId)
-            .select();
-          if (error) throw error;
-          return data;
+            .eq('user_id', userId);
+          if (updateError) throw updateError;
+          console.log(`Updated assignment for user ${userId} to project ${projectId}`);
         } else {
-          const { data, error } = await supabase
+          const { error: insertError } = await supabase
             .from('project_assignments')
-            .insert([{ user_id: userId, project_id: projectId }])
-            .select();
-          if (error) throw error;
-          return data;
+            .insert([{ user_id: userId, project_id: projectId }]);
+          if (insertError) throw insertError;
+          console.log(`Created new assignment for user ${userId} to project ${projectId}`);
         }
+
+        const { error: profileUpdateError } = await supabase
+          .from('profiles')
+          .update({ assignedProjectId: projectId })
+          .eq('id', userId);
+
+        if (profileUpdateError) throw profileUpdateError;
+        console.log(`Updated profile for user ${userId} with assignedProjectId ${projectId}`);
+
+        return true;
       } catch (error) {
         handleSupabaseError(error, 'assignWorker');
+        throw error;
       }
     };
 
@@ -117,28 +146,81 @@ import { supabase } from '@/lib/supabaseClient';
         return true;
       } catch (error) {
         handleSupabaseError(error, 'deleteProjectService');
+        throw error;
       }
     };
 
     export const updateProjectService = async (updatedProject) => {
       try {
+        const { id, manager_id, ...updateData } = updatedProject;
         const { data, error } = await supabase
           .from('projects')
-          .update({
-            name: updatedProject.name,
-            description: updatedProject.description,
-            locationName: updatedProject.locationName,
-            latitude: updatedProject.latitude,
-            longitude: updatedProject.longitude,
-            manager_id: updatedProject.manager_id,
-            status: updatedProject.status || 'Planning',
-            radius: updatedProject.radius || 100
-          })
-          .eq('id', updatedProject.id)
-          .select();
+          .update({ ...updateData, manager_id: manager_id })
+          .eq('id', id)
+          .select()
+          .single();
         if (error) throw error;
-        return data && data[0];
+        return data;
       } catch (error) {
         handleSupabaseError(error, 'updateProjectService');
+        throw error;
+      }
+    };
+
+    export const fetchTaskComments = async (taskId) => {
+      try {
+        const { data, error } = await supabase
+          .from('task_comments')
+          .select(`
+            *,
+            profiles:user_id (
+              name
+            )
+          `)
+          .eq('task_id', taskId)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        const commentsWithAuthor = data.map(comment => ({
+          ...comment,
+          authorName: comment.profiles ? comment.profiles.name : 'Unknown User'
+        }));
+
+        return commentsWithAuthor || [];
+      } catch (error) {
+        handleSupabaseError(error, 'fetchTaskComments');
+        return [];
+      }
+    };
+
+    export const createTaskComment = async (commentData) => {
+      try {
+        const { data, error } = await supabase
+          .from('task_comments')
+          .insert([commentData])
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      } catch (error) {
+        handleSupabaseError(error, 'createTaskComment');
+        throw error;
+      }
+    };
+
+    export const fetchManagers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .eq('role', 'project_manager');
+        
+        if (error) throw error;
+        return data || [];
+      } catch (error) {
+        handleSupabaseError(error, 'fetchManagers');
+        throw error;
       }
     };

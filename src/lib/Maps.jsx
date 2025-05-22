@@ -1,7 +1,7 @@
 import React from 'react';
 import { GoogleMap, useLoadScript } from '@react-google-maps/api';
 
-const MAPS_API_KEY = 'AIzaSyDxWwPaA-_LKw_lGzEP4-f9lmWIhecP-Uw';
+const MAPS_API_KEY = 'AIzaSyBKL_jxWNgABqicf8y-GDutFih91zdsghk';
 
 const defaultContainerStyle = {
   width: '100%',
