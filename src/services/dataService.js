@@ -10,14 +10,30 @@ import { supabase } from '@/lib/supabaseClient';
 
     export const fetchAllProjects = async () => {
       try {
-        const { data, error } = await supabase
+        // First fetch all projects
+        const { data: projects, error: projectsError } = await supabase
           .from('projects')
-          .select('*, profiles:manager_id (name)');
-        if (error) throw error;
-        const projectsWithManagerName = data.map(project => ({
+          .select('*');
+        
+        if (projectsError) throw projectsError;
+
+        // Then fetch all managers
+        const { data: managers, error: managersError } = await supabase
+          .from('profiles')
+          .select('id, name')
+          .eq('role', 'project_manager');
+
+        if (managersError) throw managersError;
+
+        // Create a map of manager IDs to names
+        const managerMap = new Map(managers.map(m => [m.id, m.name]));
+
+        // Combine the data
+        const projectsWithManagerName = projects.map(project => ({
           ...project,
-          manager: project.profiles ? project.profiles.name : 'Unassigned'
+          manager: managerMap.get(project.manager_id) || 'Unassigned'
         }));
+
         return projectsWithManagerName || [];
       } catch (error) {
         handleSupabaseError(error, 'fetchAllProjects');
@@ -153,14 +169,31 @@ import { supabase } from '@/lib/supabaseClient';
     export const updateProjectService = async (updatedProject) => {
       try {
         const { id, manager_id, ...updateData } = updatedProject;
-        const { data, error } = await supabase
+        
+        // Update the project
+        const { data: updatedProjectData, error: updateError } = await supabase
           .from('projects')
-          .update({ ...updateData, manager_id: manager_id })
+          .update({ ...updateData, manager_id })
           .eq('id', id)
           .select()
           .single();
-        if (error) throw error;
-        return data;
+
+        if (updateError) throw updateError;
+
+        // Fetch the manager's name
+        const { data: managerData, error: managerError } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', manager_id)
+          .single();
+
+        if (managerError) throw managerError;
+
+        // Return the combined data
+        return {
+          ...updatedProjectData,
+          manager: managerData?.name || 'Unassigned'
+        };
       } catch (error) {
         handleSupabaseError(error, 'updateProjectService');
         throw error;

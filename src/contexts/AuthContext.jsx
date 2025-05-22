@@ -260,13 +260,35 @@ const AuthProviderInternal = ({ children }) => {
   const updateProject = async (updatedProject) => {
     setLoading(true);
     try {
-      const updated = await updateProjectService(updatedProject); // Actualiza en la base de datos
+      // Ensure we have the manager information
+      const manager = allUsers.find(u => u.id === updatedProject.manager_id);
+      if (!manager) {
+        throw new Error('Selected manager not found');
+      }
+
+      // Prepare the project data with manager information
+      const projectData = {
+        ...updatedProject,
+        manager: manager.name
+      };
+
+      const updated = await updateProjectService(projectData);
+      
+      // Update the projects state with the new data
       setProjects(prev =>
-        prev.map(p => p.id === updatedProject.id ? { ...p, ...updatedProject, ...updated } : p)
+        prev.map(p => p.id === updatedProject.id ? {
+          ...p,
+          ...updated,
+          manager_id: updatedProject.manager_id,
+          manager: manager.name
+        } : p)
       );
+
       toast({ title: "Project Updated", description: `${updatedProject.name} has been updated.` });
+      return updated;
     } catch (error) {
       handleError(error, "Project Update Failed");
+      throw error; // Re-throw to handle in the component
     } finally {
       setLoading(false);
     }
