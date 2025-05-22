@@ -81,108 +81,231 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[525px] bg-card glassmorphism-card max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary">Create New Project</DialogTitle>
-          <DialogDescription>Fill in the details below to create a new construction project.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-4 py-4">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="projectName" className="text-muted-foreground">Name</Label>
-              <Input id="projectName" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="bg-background/70 focus:ring-2 focus:ring-primary" placeholder="e.g., Skyscraper Alpha" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="projectDescription" className="text-muted-foreground">Description</Label>
-              <Input id="projectDescription" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} className="bg-background/70 focus:ring-2 focus:ring-primary" placeholder="Brief project overview" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="locationName" className="text-muted-foreground">Location Name</Label>
-              <Input id="locationName" value={locationName} onChange={(e) => setLocationName(e.target.value)} className="bg-background/70 focus:ring-2 focus:ring-primary" placeholder="e.g., City Center Plaza" />
-            </div>
-            <div className="flex flex-row gap-4">
-              <div className="flex flex-col gap-1 flex-1">
-                <Label htmlFor="latitude" className="text-muted-foreground">Latitude</Label>
-                <Input id="latitude" type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} className="bg-background/70 focus:ring-2 focus:ring-primary" placeholder="e.g., 40.7128" />
-              </div>
-              <div className="flex flex-col gap-1 flex-1">
-                <Label htmlFor="longitude" className="text-muted-foreground">Longitude</Label>
-                <Input id="longitude" type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} className="bg-background/70 focus:ring-2 focus:ring-primary" placeholder="e.g., -74.0060" />
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="manager" className="text-muted-foreground">Manager</Label>
-              {loadingManagers ? (
-                <p className="text-muted-foreground">Loading managers...</p>
-              ) : (
-                <select 
-                  id="manager" 
-                  value={selectedManager} 
-                  onChange={(e) => setSelectedManager(e.target.value)} 
-                  className="bg-background/70 p-2 rounded-md border border-border focus:ring-2 focus:ring-primary"
+      <DialogContent className="sm:max-w-[525px] bg-gradient-to-br from-background/95 to-background/80 backdrop-blur-xl border border-primary/20 shadow-2xl rounded-xl overflow-hidden">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <DialogHeader className="space-y-3 pb-4 border-b border-primary/10">
+            <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-tertiary">
+              Create New Project
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground/80">
+              Fill in the details below to create a new construction project.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit}>
+            <motion.div 
+              className="flex flex-col gap-4 py-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+            >
+              <div className="grid grid-cols-2 gap-4">
+                <motion.div 
+                  className="flex flex-col gap-1"
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.2 }}
                 >
-                  <option value="" disabled>Select a manager</option>
-                  {managers.map(manager => (
-                    <option key={manager.id} value={manager.id}>{manager.name}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-            <div className="flex flex-col gap-2 bg-secondary/30 rounded-md p-4">
-              <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
-                <Globe size={16} className="inline" />
-                Project radius for worker check-in (meters)
-              </Label>
-              <input
-                id="radius"
-                type="range"
-                min={50}
-                max={1000}
-                step={10}
-                value={radius}
-                onChange={e => setRadius(Number(e.target.value))}
-                className="w-full accent-primary"
-              />
-              <div className="text-xs text-muted-foreground text-right">
-                {radius} meters
+                  <Label htmlFor="projectName" className="text-muted-foreground">Name</Label>
+                  <Input 
+                    id="projectName" 
+                    value={projectName} 
+                    onChange={(e) => setProjectName(e.target.value)} 
+                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                    placeholder="e.g., Skyscraper Alpha" 
+                  />
+                </motion.div>
+                <motion.div 
+                  className="flex flex-col gap-1"
+                  initial={{ x: 20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <Label htmlFor="locationName" className="text-muted-foreground">Location</Label>
+                  <Input 
+                    id="locationName" 
+                    value={locationName} 
+                    onChange={(e) => setLocationName(e.target.value)} 
+                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                    placeholder="e.g., City Center Plaza" 
+                  />
+                </motion.div>
               </div>
-            </div>
-            <div className="col-span-4 h-64 rounded-md overflow-hidden">
-              <Maps
-                mapContainerStyle={{ width: '100%', height: '100%' }}
-                center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
-                zoom={12}
-                onClick={handleMapClick}
-                mapId="5795a66c547e6becbb38a780"
+
+              <motion.div 
+                className="flex flex-col gap-1"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
               >
-                {latitude && longitude && (
-                  <>
-                    <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
-                    <Circle
-                      center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
-                      radius={radius}
-                      options={{
-                        fillColor: '#007bff',
-                        fillOpacity: 0.2,
-                        strokeColor: '#007bff',
-                        strokeOpacity: 0.6,
-                        strokeWeight: 2,
-                        clickable: false,
-                        draggable: false,
-                        editable: false,
-                        visible: true,
-                      }}
+                <Label htmlFor="projectDescription" className="text-muted-foreground">Description</Label>
+                <Input 
+                  id="projectDescription" 
+                  value={projectDescription} 
+                  onChange={(e) => setProjectDescription(e.target.value)} 
+                  className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                  placeholder="Brief project overview" 
+                />
+              </motion.div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <motion.div 
+                  className="flex flex-col gap-1"
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                >
+                  <Label htmlFor="latitude" className="text-muted-foreground">Latitude</Label>
+                  <Input 
+                    id="latitude" 
+                    type="number" 
+                    step="any" 
+                    value={latitude} 
+                    onChange={(e) => setLatitude(e.target.value)} 
+                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                    placeholder="e.g., 40.7128" 
+                  />
+                </motion.div>
+                <motion.div 
+                  className="flex flex-col gap-1"
+                  initial={{ x: 20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.6 }}
+                >
+                  <Label htmlFor="longitude" className="text-muted-foreground">Longitude</Label>
+                  <Input 
+                    id="longitude" 
+                    type="number" 
+                    step="any" 
+                    value={longitude} 
+                    onChange={(e) => setLongitude(e.target.value)} 
+                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                    placeholder="e.g., -74.0060" 
+                  />
+                </motion.div>
+              </div>
+
+              <motion.div 
+                className="flex flex-col gap-1"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.7 }}
+              >
+                <Label htmlFor="manager" className="text-muted-foreground">Manager</Label>
+                {loadingManagers ? (
+                  <div className="h-10 bg-background/50 border border-primary/20 rounded-md flex items-center justify-center">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      className="w-5 h-5 border-2 border-primary/50 border-t-transparent rounded-full"
                     />
-                  </>
+                  </div>
+                ) : (
+                  <select 
+                    id="manager" 
+                    value={selectedManager} 
+                    onChange={(e) => setSelectedManager(e.target.value)} 
+                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 p-2 rounded-md"
+                  >
+                    <option value="" disabled>Select a manager</option>
+                    {managers.map(manager => (
+                      <option key={manager.id} value={manager.id}>{manager.name}</option>
+                    ))}
+                  </select>
                 )}
-              </Maps>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="bg-secondary/50 hover:bg-secondary/80">Cancel</Button>
-            <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">Create Project</Button>
-          </DialogFooter>
-        </form>
+              </motion.div>
+
+              <motion.div 
+                className="flex flex-col gap-2 bg-primary/5 rounded-md p-4"
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.8 }}
+              >
+                <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
+                  <Globe size={16} className="text-primary" />
+                  Project radius for worker check-in (meters)
+                </Label>
+                <input
+                  id="radius"
+                  type="range"
+                  min={50}
+                  max={1000}
+                  step={10}
+                  value={radius}
+                  onChange={e => setRadius(Number(e.target.value))}
+                  className="w-full accent-primary"
+                />
+                <div className="text-xs text-muted-foreground text-right">
+                  {radius} meters
+                </div>
+              </motion.div>
+
+              <motion.div 
+                className="h-64 rounded-md overflow-hidden border border-primary/20"
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.9 }}
+              >
+                <Maps
+                  mapContainerStyle={{ width: '100%', height: '100%' }}
+                  center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
+                  zoom={12}
+                  onClick={handleMapClick}
+                  mapId="5795a66c547e6becbb38a780"
+                >
+                  {latitude && longitude && (
+                    <>
+                      <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
+                      <Circle
+                        center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
+                        radius={radius}
+                        options={{
+                          fillColor: '#007bff',
+                          fillOpacity: 0.2,
+                          strokeColor: '#007bff',
+                          strokeOpacity: 0.6,
+                          strokeWeight: 2,
+                          clickable: false,
+                          draggable: false,
+                          editable: false,
+                          visible: true,
+                        }}
+                      />
+                    </>
+                  )}
+                </Maps>
+              </motion.div>
+            </motion.div>
+
+            <DialogFooter className="border-t border-primary/10 pt-4">
+              <motion.div
+                className="flex gap-3 w-full"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1 }}
+              >
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsOpen(false)} 
+                  className="flex-1 bg-background/50 border-primary/20 hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="flex-1 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white transition-all duration-200"
+                >
+                  Create Project
+                </Button>
+              </motion.div>
+            </DialogFooter>
+          </form>
+        </motion.div>
       </DialogContent>
     </Dialog>
   );
@@ -248,18 +371,17 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
     }
 
     try {
-      await onProjectUpdate({ 
+      const updatedProject = {
         ...project,
-        name: projectName, 
-        description: projectDescription, 
-        locationName, 
-        latitude: lat, 
+        name: projectName,
+        description: projectDescription,
+        locationName,
+        latitude: lat,
         longitude: lon,
         manager_id: selectedManager,
         radius
-      });
-      setIsOpen(false);
-      toast({ title: "Success", description: "Project updated successfully." });
+      };
+      await onProjectUpdate(updatedProject);
     } catch (error) {
       console.error('Error updating project:', error);
       toast({ variant: "destructive", title: "Error", description: "Failed to update project." });
@@ -503,7 +625,12 @@ export default function AdminProjectManagementPage() {
   const [mapCenter, setMapCenter] = useState({ lat: 4.8133, lng: -75.6967 });
   const [mapZoom, setMapZoom] = useState(12);
   const [managers, setManagers] = useState([]);
+  const [localProjects, setLocalProjects] = useState([]);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setLocalProjects(projects);
+  }, [projects]);
 
   useEffect(() => {
     const loadManagers = async () => {
@@ -517,19 +644,48 @@ export default function AdminProjectManagementPage() {
     loadManagers();
   }, [toast]);
 
-  const filteredProjects = projects.filter(project => 
-    project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.locationName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleEditClick = (project) => {
-    setProjectToEdit(project);
-    setIsEditModalOpen(true);
+  const handleProjectCreate = async (newProject) => {
+    try {
+      const createdProject = await addProject(newProject);
+      setLocalProjects(prev => [...prev, createdProject]);
+      setIsModalOpen(false);
+      toast({ title: "Success", description: "Project created successfully." });
+    } catch (error) {
+      console.error('Error creating project:', error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to create project." });
+    }
   };
 
   const handleProjectUpdate = async (updatedProject) => {
     try {
-      await updateProject(updatedProject);
+      // First, get the manager's name from the managers list
+      const manager = managers.find(m => m.id === updatedProject.manager_id);
+      if (!manager) {
+        toast({ variant: "destructive", title: "Error", description: "Selected manager not found." });
+        return;
+      }
+
+      // Prepare the project data with the manager information
+      const projectData = {
+        ...updatedProject,
+        manager: manager.name // Include the manager's name
+      };
+
+      // Call the update service
+      const result = await updateProject(projectData);
+      
+      // Update the local state with the new data
+      setLocalProjects(prev => 
+        prev.map(project => 
+          project.id === updatedProject.id ? {
+            ...project,
+            ...result,
+            manager_id: updatedProject.manager_id,
+            manager: manager.name
+          } : project
+        )
+      );
+
       setIsEditModalOpen(false);
       toast({ title: "Success", description: "Project updated successfully." });
     } catch (error) {
@@ -538,10 +694,27 @@ export default function AdminProjectManagementPage() {
     }
   };
 
-  const handleDeleteClick = (projectId) => {
+  const handleDeleteClick = async (projectId) => {
     if (window.confirm("Are you sure you want to delete this project?")) {
-      deleteProject(projectId);
+      try {
+        await deleteProject(projectId);
+        setLocalProjects(prev => prev.filter(project => project.id !== projectId));
+        toast({ title: "Success", description: "Project deleted successfully." });
+      } catch (error) {
+        console.error('Error deleting project:', error);
+        toast({ variant: "destructive", title: "Error", description: "Failed to delete project." });
+      }
     }
+  };
+
+  const filteredProjects = localProjects.filter(project => 
+    project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    project.locationName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleEditClick = (project) => {
+    setProjectToEdit(project);
+    setIsEditModalOpen(true);
   };
 
   const handleProjectClick = (project) => {
@@ -566,8 +739,18 @@ export default function AdminProjectManagementPage() {
         </Button>
       </motion.div>
 
-      <CreateProjectModal isOpen={isModalOpen} setIsOpen={setIsModalOpen} onProjectCreate={addProject} />
-      <EditProjectModal isOpen={isEditModalOpen} setIsOpen={setIsEditModalOpen} project={projectToEdit} onProjectUpdate={handleProjectUpdate} />
+      <CreateProjectModal 
+        isOpen={isModalOpen} 
+        setIsOpen={setIsModalOpen} 
+        onProjectCreate={handleProjectCreate} 
+      />
+      
+      <EditProjectModal 
+        isOpen={isEditModalOpen} 
+        setIsOpen={setIsEditModalOpen} 
+        project={projectToEdit} 
+        onProjectUpdate={handleProjectUpdate} 
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Projects List Section */}
@@ -624,7 +807,9 @@ export default function AdminProjectManagementPage() {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <p className="text-muted-foreground">Manager</p>
-                        <p className="font-medium">{project.manager}</p>
+                        <p className="font-medium">
+                          {project.manager || managers.find(m => m.id === project.manager_id)?.name || 'Unknown'}
+                        </p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">Radius</p>
@@ -728,7 +913,9 @@ export default function AdminProjectManagementPage() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Manager</p>
-                    <p className="font-medium">{selectedProject.manager}</p>
+                    <p className="font-medium">
+                      {selectedProject.manager || managers.find(m => m.id === selectedProject.manager_id)?.name || 'Unknown'}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Coordinates</p>
