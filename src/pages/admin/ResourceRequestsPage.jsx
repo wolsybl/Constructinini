@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Search, CheckCircle, XCircle, Clock, Package } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Clock, Package, DollarSign, Edit2, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -17,10 +17,72 @@ export default function ResourceRequestsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [resourceTypes, setResourceTypes] = useState([]);
+  const [isPriceModalOpen, setIsPriceModalOpen] = useState(false);
+  const [isNewResourceModalOpen, setIsNewResourceModalOpen] = useState(false);
+  const [selectedResource, setSelectedResource] = useState(null);
+  const [newPrice, setNewPrice] = useState('');
+  const [newResource, setNewResource] = useState({
+    name: '',
+    unit: '',
+    cost: ''
+  });
 
   useEffect(() => {
     fetchRequests();
+    fetchResourceTypes();
   }, []);
+
+  const fetchResourceTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('resource_types')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setResourceTypes(data || []);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch resource types."
+      });
+    }
+  };
+
+  const handlePriceUpdate = async (resourceId, newPrice) => {
+    try {
+      const { error } = await supabase
+        .from('resource_types')
+        .update({ cost: parseFloat(newPrice) })
+        .eq('id', resourceId);
+
+      if (error) throw error;
+
+      // Update local state
+      setResourceTypes(resourceTypes.map(resource =>
+        resource.id === resourceId
+          ? { ...resource, cost: parseFloat(newPrice) }
+          : resource
+      ));
+
+      toast({
+        title: "Price Updated",
+        description: "Resource price has been updated successfully."
+      });
+
+      setIsPriceModalOpen(false);
+      setSelectedResource(null);
+      setNewPrice('');
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update resource price."
+      });
+    }
+  };
 
   const fetchRequests = async () => {
     try {
@@ -29,7 +91,11 @@ export default function ResourceRequestsPage() {
         .select(`
           *,
           profiles (name),
-          projects (name),
+          projects (
+            name,
+            budget,
+            spent_budget
+          ),
           resource_request_items (
             *,
             resource_types (name, unit)
@@ -52,17 +118,95 @@ export default function ResourceRequestsPage() {
 
   const handleStatusUpdate = async (requestId, newStatus) => {
     try {
-      const { error } = await supabase
+      // Find the request being updated from the local state
+      const requestToUpdate = requests.find(req => req.id === requestId);
+      if (!requestToUpdate) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Request not found."
+        });
+        return;
+      }
+
+      // If approving the request, perform budget check
+      if (newStatus === 'approved') {
+        const project = requestToUpdate.projects;
+        const requestedItems = requestToUpdate.resource_request_items;
+
+        // Calculate the total cost of requested items
+        let requestCost = 0;
+        if (requestedItems && requestedItems.length > 0) {
+          requestCost = requestedItems.reduce((sum, item) => {
+            // Ensure item and resource_types and cost are available and are numbers
+            const quantity = item.quantity ? parseFloat(item.quantity) : 0;
+            const costPerUnit = item.resource_types?.cost ? parseFloat(item.resource_types.cost) : 0;
+            if (!isNaN(quantity) && !isNaN(costPerUnit)) {
+              return sum + (quantity * costPerUnit);
+            } else {
+              console.warn('Invalid quantity or cost for item:', item);
+              return sum; // Skip invalid items
+            }
+          }, 0);
+        }
+
+        // Get project budget and spent budget
+        const projectBudget = project?.budget ? parseFloat(project.budget) : null;
+        const spentBudget = project?.spent_budget ? parseFloat(project.spent_budget) : 0;
+
+        // Perform budget check if project has a budget set
+        if (projectBudget !== null && !isNaN(projectBudget)) {
+          if (spentBudget + requestCost > projectBudget) {
+            toast({
+              variant: "destructive",
+              title: "Approval Failed",
+              description: `Approving this request exceeds the project budget. Remaining: ${(projectBudget - spentBudget).toFixed(2)} USD. Request cost: ${requestCost.toFixed(2)} USD.`
+            });
+            return; // Stop here if budget is exceeded
+          }
+        }
+
+        // If budget is not exceeded, update spent budget in the project
+        if (project && project.id) {
+          const newSpentBudget = spentBudget + requestCost;
+          const { error: updateBudgetError } = await supabase
+            .from('projects')
+            .update({ spent_budget: newSpentBudget })
+            .eq('id', project.id);
+
+          if (updateBudgetError) {
+            console.error('Error updating spent budget:', updateBudgetError);
+            // Optionally, revert the request status update if budget update fails
+            // For now, we'll just log and show an error, assuming status update might still be useful.
+            toast({
+              variant: "destructive",
+              title: "Budget Update Failed",
+              description: "Failed to update project spent budget in database."
+            });
+             // Decide if you want to return here or proceed with status update anyway
+             // return; // Uncomment to stop if budget update fails
+          }
+           // Update local state for the project's spent budget
+            setRequests(requests.map(req =>
+              req.projects?.id === project.id
+                ? { ...req, projects: { ...req.projects, spent_budget: newSpentBudget } }
+                : req
+            ));
+        }
+      }
+
+      // Proceed with updating the request status
+      const { error: updateStatusError } = await supabase
         .from('resource_requests')
         .update({ status: newStatus })
         .eq('id', requestId);
 
-      if (error) throw error;
+      if (updateStatusError) throw updateStatusError; // Throw this error to be caught below
 
-      // Update local state
+      // Update local state for the request status
       setRequests(requests.map(request => 
         request.id === requestId 
-          ? { ...request, status: newStatus }
+          ? { ...request, status: newStatus } // Update only the status of the request
           : request
       ));
 
@@ -70,11 +214,55 @@ export default function ResourceRequestsPage() {
         title: "Status Updated",
         description: `Request status has been updated to ${newStatus}.`
       });
+
+      // Re-fetch requests to ensure data consistency across all requests if needed
+      // fetchRequests(); // Optional: Uncomment if you need to fully refresh all data
+
+    } catch (error) {
+      console.error('Error updating request status or budget:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to update request status or budget."
+      });
+    }
+  };
+
+  const handleCreateResource = async () => {
+    try {
+      if (!newResource.name || !newResource.unit || !newResource.cost) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Please fill in all fields."
+        });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('resource_types')
+        .insert([{
+          name: newResource.name,
+          unit: newResource.unit,
+          cost: parseFloat(newResource.cost)
+        }])
+        .select();
+
+      if (error) throw error;
+
+      setResourceTypes([...resourceTypes, data[0]]);
+      setNewResource({ name: '', unit: '', cost: '' });
+      setIsNewResourceModalOpen(false);
+
+      toast({
+        title: "Success",
+        description: "New resource type created successfully."
+      });
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to update request status."
+        description: "Failed to create new resource type."
       });
     }
   };
@@ -97,6 +285,13 @@ export default function ResourceRequestsPage() {
 
   const RequestDetailsModal = ({ request, isOpen, setIsOpen }) => {
     if (!request) return null;
+
+    // Calculate remaining budget
+    const remainingBudget = request.projects?.budget != null 
+      ? (request.projects.budget - (request.projects.spent_budget || 0)).toFixed(2) 
+      : 'N/A';
+    const budgetDisplay = request.projects?.budget != null ? `${request.projects.budget.toFixed(2)} USD` : 'Not set';
+    const spentDisplay = request.projects?.spent_budget != null ? `${request.projects.spent_budget.toFixed(2)} USD` : '0.00 USD';
 
     return (
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -130,6 +325,24 @@ export default function ResourceRequestsPage() {
                 </div>
               </div>
             </div>
+
+            {/* Add Budget Information */}
+            {request.projects?.budget != null && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm text-muted-foreground">Project Budget</Label>
+                  <div className="text-sm font-medium">{budgetDisplay}</div>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Budget Spent</Label>
+                  <div className="text-sm font-medium">{spentDisplay}</div>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Remaining Budget</Label>
+                  <div className={`text-sm font-medium ${parseFloat(remainingBudget) < 0 ? 'text-red-600' : 'text-green-600'}`}>{remainingBudget} USD</div>
+                </div>
+              </div>
+            )}
 
             <div>
               <Label className="text-sm text-muted-foreground">Requested Resources</Label>
@@ -209,6 +422,52 @@ export default function ResourceRequestsPage() {
         transition={{ delay: 0.2, duration: 0.5 }}
       >
         <Card className="glassmorphism-card mb-8">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Resource Prices</CardTitle>
+              <CardDescription>Manage prices for available resources</CardDescription>
+            </div>
+            <Button
+              onClick={() => setIsNewResourceModalOpen(true)}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Resource
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {resourceTypes.map((resource) => (
+                <Card key={resource.id} className="glassmorphism-card">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="font-medium">{resource.name}</h3>
+                        <p className="text-sm text-muted-foreground">{resource.unit}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-semibold">${resource.cost || 0}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedResource(resource);
+                            setNewPrice(resource.cost?.toString() || '');
+                            setIsPriceModalOpen(true);
+                          }}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glassmorphism-card mb-8">
           <CardHeader>
             <CardTitle>Filter Requests</CardTitle>
             <CardDescription>Search requests by project, requester, or status.</CardDescription>
@@ -246,6 +505,9 @@ export default function ResourceRequestsPage() {
                   <div className="space-y-2">
                     <p className="text-sm">
                       <span className="font-semibold text-muted-foreground">Requester:</span> {request.profiles?.name}
+                    </p>
+                    <p className="text-sm">
+                      <span className="font-semibold text-muted-foreground">Project Budget:</span> {request.projects?.budget != null ? `${request.projects.budget.toFixed(2)} USD` : 'Not set'}
                     </p>
                     <p className="text-sm">
                       <span className="font-semibold text-muted-foreground">Priority:</span> {request.priority}
@@ -314,6 +576,118 @@ export default function ResourceRequestsPage() {
           </motion.div>
         )}
       </motion.div>
+
+      {/* Price Update Modal */}
+      <Dialog open={isPriceModalOpen} onOpenChange={setIsPriceModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Update Resource Price</DialogTitle>
+            <DialogDescription>
+              Set the price for {selectedResource?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="price" className="text-right">
+                Price ($)
+              </Label>
+              <Input
+                id="price"
+                type="number"
+                step="0.01"
+                min="0"
+                value={newPrice}
+                onChange={(e) => setNewPrice(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsPriceModalOpen(false);
+                setSelectedResource(null);
+                setNewPrice('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handlePriceUpdate(selectedResource.id, newPrice)}
+            >
+              Update Price
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Resource Modal */}
+      <Dialog open={isNewResourceModalOpen} onOpenChange={setIsNewResourceModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add New Resource</DialogTitle>
+            <DialogDescription>
+              Create a new resource type with its price
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="name"
+                value={newResource.name}
+                onChange={(e) => setNewResource({ ...newResource, name: e.target.value })}
+                className="col-span-3"
+                placeholder="e.g., Cement, Steel, etc."
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="unit" className="text-right">
+                Unit
+              </Label>
+              <Input
+                id="unit"
+                value={newResource.unit}
+                onChange={(e) => setNewResource({ ...newResource, unit: e.target.value })}
+                className="col-span-3"
+                placeholder="e.g., kg, m³, etc."
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="cost" className="text-right">
+                Price ($)
+              </Label>
+              <Input
+                id="cost"
+                type="number"
+                step="0.01"
+                min="0"
+                value={newResource.cost}
+                onChange={(e) => setNewResource({ ...newResource, cost: e.target.value })}
+                className="col-span-3"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsNewResourceModalOpen(false);
+                setNewResource({ name: '', unit: '', cost: '' });
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreateResource}>
+              Create Resource
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <RequestDetailsModal
         request={selectedRequest}

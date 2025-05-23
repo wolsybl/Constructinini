@@ -24,6 +24,7 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
   const [managers, setManagers] = useState([]);
   const [loadingManagers, setLoadingManagers] = useState(false);
   const [radius, setRadius] = useState(100);
+  const [projectBudget, setProjectBudget] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -60,6 +61,13 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
       return;
     }
 
+    // Validate budget is a valid number if entered
+    const budgetValue = projectBudget === '' ? null : parseFloat(projectBudget);
+    if (projectBudget !== '' && isNaN(budgetValue)) {
+      toast({ variant: "destructive", title: "Invalid Budget", description: "Please enter a valid number for the budget." });
+      return;
+    }
+
     try {
       await onProjectCreate({ 
         name: projectName, 
@@ -69,7 +77,8 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
         longitude: lon,
         status: 'Planning', 
         manager_id: selectedManager,
-        radius
+        radius,
+        budget: budgetValue
       });
       setIsOpen(false);
       toast({ title: "Success", description: "Project created successfully." });
@@ -149,6 +158,24 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
                   onChange={(e) => setProjectDescription(e.target.value)} 
                   className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
                   placeholder="Brief project overview" 
+                />
+              </motion.div>
+
+              <motion.div 
+                className="flex flex-col gap-1"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.45 }}
+              >
+                <Label htmlFor="projectBudget" className="text-muted-foreground">Budget (USD)</Label>
+                <Input 
+                  id="projectBudget" 
+                  type="number" 
+                  step="0.01" 
+                  value={projectBudget} 
+                  onChange={(e) => setProjectBudget(e.target.value)} 
+                  className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                  placeholder="e.g., 100000.00" 
                 />
               </motion.div>
 
@@ -322,6 +349,7 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
   const [managers, setManagers] = useState([]);
   const [loadingManagers, setLoadingManagers] = useState(false);
   const [radius, setRadius] = useState(100);
+  const [projectBudget, setProjectBudget] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -333,6 +361,7 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
       setLongitude(project.longitude || '');
       setSelectedManager(project.manager_id || '');
       setRadius(project.radius || 100);
+      setProjectBudget(project.budget || '');
     }
   }, [project]);
 
@@ -370,6 +399,13 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
       return;
     }
 
+    // Validate budget is a valid number if entered
+    const budgetValue = projectBudget === '' ? null : parseFloat(projectBudget);
+    if (projectBudget !== '' && isNaN(budgetValue)) {
+      toast({ variant: "destructive", title: "Invalid Budget", description: "Please enter a valid number for the budget." });
+      return;
+    }
+
     try {
       const updatedProject = {
         ...project,
@@ -379,7 +415,8 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
         latitude: lat,
         longitude: lon,
         manager_id: selectedManager,
-        radius
+        radius,
+        budget: budgetValue
       };
       await onProjectUpdate(updatedProject);
     } catch (error) {
@@ -455,6 +492,24 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
                   value={projectDescription} 
                   onChange={(e) => setProjectDescription(e.target.value)} 
                   className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                />
+              </motion.div>
+
+              <motion.div 
+                className="flex flex-col gap-1"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.45 }}
+              >
+                <Label htmlFor="editProjectBudget" className="text-muted-foreground">Budget (USD)</Label>
+                <Input 
+                  id="editProjectBudget" 
+                  type="number" 
+                  step="0.01" 
+                  value={projectBudget} 
+                  onChange={(e) => setProjectBudget(e.target.value)} 
+                  className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                  placeholder="e.g., 100000.00" 
                 />
               </motion.div>
 

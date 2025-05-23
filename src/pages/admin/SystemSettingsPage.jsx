@@ -82,12 +82,11 @@ export default function SystemSettingsPage() {
   });
 
   const exportToExcel = () => {
-    const header = ['Name', 'Hours Worked', 'Project', 'Assigned Tasks', 'Payment (USD)'];
+    const header = ['Name', 'Hours Worked', 'Project', 'Payment (USD)'];
     const rows = sortedAttendance.map(row => [
       row.name,
       row.hoursWorked,
       row.project,
-      getUserTasks(row.userId, row.projectId),
       row.payment,
     ]);
     const csvContent = [header, ...rows]
@@ -105,12 +104,11 @@ export default function SystemSettingsPage() {
     doc.text('Attendance Report', 14, 16);
     doc.setFontSize(12);
 
-    const head = [['Name', 'Hours Worked', 'Project', 'Assigned Tasks', 'Payment (USD)']];
+    const head = [['Name', 'Hours Worked', 'Project', 'Payment (USD)']];
     const body = sortedAttendance.map(row => [
       row.name,
       row.hoursWorked,
       row.project,
-      getUserTasks(row.userId, row.projectId),
       row.payment,
     ]);
 
