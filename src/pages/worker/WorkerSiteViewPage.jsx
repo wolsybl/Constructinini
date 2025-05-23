@@ -5,70 +5,21 @@ import { MapPin, Users, ListChecks, AlertTriangle, CheckCircle2 } from 'lucide-r
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '../../lib/supabaseClient';
 
 export default function WorkerSiteViewPage() {
-  const { user } = useAuth();
-  const [project, setProject] = useState(null);
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user, projects, tasks, projectAssignments } = useAuth();
 
-  useEffect(() => {
-    const fetchProjectAndTasks = async () => {
-      setLoading(true);
-      try {
-        // Buscar el proyecto asignado al usuario
-        const { data: assignment, error: assignmentError } = await supabase
-          .from('project_assignments')
-          .select('project_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
+  // Find the assigned project using data from AuthContext
+  const assignedProjectAssignment = projectAssignments.find(assignment => assignment.user_id === user?.id);
+  const project = assignedProjectAssignment ? projects.find(p => p.id === assignedProjectAssignment.project_id) : null;
 
-        if (assignmentError) throw assignmentError;
-        if (!assignment) {
-          setProject(null);
-          setTasks([]);
-          setLoading(false);
-          return;
-        }
+  // Filter tasks for the assigned project
+  const projectTasks = project ? tasks.filter(task => task.project_id === project.id) : [];
 
-        // Obtener datos del proyecto
-        const { data: projectData, error: projectError } = await supabase
-          .from('projects')
-          .select('*')
-          .eq('id', assignment.project_id)
-          .single();
-
-        if (projectError) throw projectError;
-        setProject(projectData);
-
-        // Obtener tareas asignadas al usuario en ese proyecto
-        const { data: userTasks, error: tasksError } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('assigned_to_user_id', user.id)
-          .eq('project_id', assignment.project_id);
-
-        if (tasksError) throw tasksError;
-        setTasks(userTasks || []);
-      } catch (err) {
-        setProject(null);
-        setTasks([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user?.id) fetchProjectAndTasks();
-  }, [user]);
-
-  if (loading) {
-    return (
-      <div className="container mx-auto py-8 px-4 md:px-6">
-        <p className="text-center text-muted-foreground">Loading site information...</p>
-      </div>
-    );
-  }
+  // Calculate progress
+  const completedTasks = projectTasks.filter(task => task.status === 'Completed').length;
+  const totalTasks = projectTasks.length;
+  const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   if (!project) {
     return (
@@ -115,7 +66,7 @@ export default function WorkerSiteViewPage() {
             <CardContent className="space-y-3">
               <p><span className="font-semibold text-muted-foreground">Project Manager:</span> {project.manager || '-'}</p>
               <p><span className="font-semibold text-muted-foreground">Status:</span> {project.status}</p>
-              <p><span className="font-semibold text-muted-foreground">Progress:</span> <span className="text-primary font-bold">{project.progress ?? 0}%</span></p>
+              <p><span className="font-semibold text-muted-foreground">Progress:</span> <span className="text-primary font-bold">{progress}%</span></p>
               <p><span className="font-semibold text-muted-foreground">Location:</span> {project.location_name || project.locationName || '-'}</p>
               <p><span className="font-semibold text-muted-foreground">Radius:</span> {project.radius} m</p>
             </CardContent>
@@ -133,9 +84,9 @@ export default function WorkerSiteViewPage() {
               <CardTitle className="text-xl flex items-center"><ListChecks size={22} className="mr-2 text-tertiary" /> My Tasks on this Site</CardTitle>
             </CardHeader>
             <CardContent>
-              {tasks.length > 0 ? (
+              {projectTasks.length > 0 ? (
                 <ul className="space-y-3">
-                  {tasks.map(task => (
+                  {projectTasks.map(task => (
                     <li key={task.id} className="p-3 bg-secondary/30 rounded-md flex justify-between items-center">
                       <span className="text-sm">{task.title}</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${

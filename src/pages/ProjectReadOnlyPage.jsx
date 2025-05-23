@@ -5,6 +5,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { XCircle, PlusCircle, MinusCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 export default function ProjectReadOnlyPage() {
   const { id } = useParams();
@@ -21,14 +30,24 @@ export default function ProjectReadOnlyPage() {
     priority: 'medium',
     notes: ''
   });
+  const [totalRequestCost, setTotalRequestCost] = useState(0);
 
   const project = projects.find(p => String(p.id) === String(id));
-  if (!project) return <div className="p-8 text-center">Project not found.</div>;
+  
+  useEffect(() => {
+    if (project) {
+      fetchProjectResources();
+      fetchResourceTypes();
+    } else {
+        setLoading(false);
+    }
+  }, [id, project]);
 
   useEffect(() => {
-    fetchProjectResources();
-    fetchResourceTypes();
-  }, [id]);
+    calculateTotalCost();
+  }, [requestData.resources, resourceTypes]);
+
+  if (!project) return <div className="p-8 text-center text-red-600">Project not found or you do not have access.</div>;
 
   const fetchProjectResources = async () => {
     try {
@@ -176,15 +195,30 @@ export default function ProjectReadOnlyPage() {
         priority: 'medium',
         notes: ''
       });
+      setTotalRequestCost(0); // Reset cost on successful submission
     } catch (error) {
       console.error('Error submitting request:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to submit resource request. Please try again later."
+        description: error.message || "Failed to submit resource request. Please try again later."
       });
     }
   };
+
+  const calculateTotalCost = () => {
+    let total = 0;
+    requestData.resources.forEach(item => {
+      const resourceType = resourceTypes.find(rt => String(rt.id) === String(item.type));
+      if (resourceType && item.quantity) {
+        total += parseFloat(item.quantity) * (resourceType.cost || 0);
+      }
+    });
+    setTotalRequestCost(total);
+  };
+
+  const remainingBudget = (project.budget || 0) - (project.spent_budget || 0);
+  const canAffordRequest = totalRequestCost <= remainingBudget;
 
   // Simulated data for demonstration
   const projectStats = {
@@ -266,230 +300,184 @@ export default function ProjectReadOnlyPage() {
             </div>
           </div>
 
-          {/* Info Panel */}
-          <div className="lg:col-span-1">
-            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20">
-              <div className="flex border-b border-gray-200/50">
-                <button
-                  className={`flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 ${
-                    activeTab === 'info'
-                      ? 'text-blue-600 border-b-2 border-blue-500 bg-blue-50/50'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50/50'
-                  }`}
-                  onClick={() => setActiveTab('info')}
-                >
-                  Project Info
-                </button>
-                <button
-                  className={`flex-1 px-4 py-3 text-sm font-medium transition-all duration-200 ${
-                    activeTab === 'details'
-                      ? 'text-blue-600 border-b-2 border-blue-500 bg-blue-50/50'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50/50'
-                  }`}
-                  onClick={() => setActiveTab('details')}
-                >
-                  Details
-                </button>
-              </div>
-              
-              <div className="p-6">
-                {activeTab === 'info' ? (
-                  <div className="space-y-5">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Name</label>
-                      <div className="w-full px-4 py-3 bg-white/60 backdrop-blur-sm border border-gray-200/50 rounded-lg text-gray-700 select-none shadow-sm">
-                        {project.name}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
-                      <div className="w-full px-4 py-3 bg-white/60 backdrop-blur-sm border border-gray-200/50 rounded-lg text-gray-700 select-none shadow-sm">
-                        {project.description}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Location Name</label>
-                      <div className="w-full px-4 py-3 bg-white/60 backdrop-blur-sm border border-gray-200/50 rounded-lg text-gray-700 select-none shadow-sm">
-                        {project.locationName}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-5">
-                    <div className="flex gap-4">
-                      <div className="flex-1">
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Latitude</label>
-                        <div className="w-full px-4 py-3 bg-white/60 backdrop-blur-sm border border-gray-200/50 rounded-lg text-gray-700 select-none shadow-sm">
-                          {project.latitude}
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Longitude</label>
-                        <div className="w-full px-4 py-3 bg-white/60 backdrop-blur-sm border border-gray-200/50 rounded-lg text-gray-700 select-none shadow-sm">
-                          {project.longitude}
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Manager</label>
-                      <div className="w-full px-4 py-3 bg-white/60 backdrop-blur-sm border border-gray-200/50 rounded-lg text-gray-700 select-none shadow-sm">
-                        {project.manager}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Radius (meters)</label>
-                      <div className="w-full px-4 py-3 bg-white/60 backdrop-blur-sm border border-gray-200/50 rounded-lg text-gray-700 select-none shadow-sm">
-                        {project.radius}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Resource Management */}
-            <div className="mt-4 bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-semibold text-gray-700">Resource Management</h3>
-                <button
-                  onClick={() => setShowRequestForm(!showRequestForm)}
-                  className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm"
-                >
-                  {showRequestForm ? 'Cancel' : 'Request Resources'}
-                </button>
-              </div>
-
-              {showRequestForm ? (
-                <form onSubmit={handleRequestSubmit} className="space-y-4">
-                  {requestData.resources.map((resource, index) => (
-                    <div key={index} className="space-y-3 p-3 bg-white/60 rounded-lg border border-gray-200/50">
-                      <div className="flex justify-between items-center">
-                        <h4 className="text-sm font-medium text-gray-700">Resource {index + 1}</h4>
-                        {index > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => removeResourceField(index)}
-                            className="text-red-500 hover:text-red-600"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm text-gray-600 mb-1">Type</label>
-                          <select
-                            value={resource.type}
-                            onChange={(e) => updateResource(index, 'type', e.target.value)}
-                            className="w-full px-3 py-2 bg-white/60 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                          >
-                            <option value="">Select a resource</option>
-                            {resourceTypes.map(type => (
-                              <option key={type.id} value={type.id}>
-                                {type.name} ({type.unit})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm text-gray-600 mb-1">Quantity</label>
-                          <input
-                            type="number"
-                            value={resource.quantity}
-                            onChange={(e) => updateResource(index, 'quantity', e.target.value)}
-                            className="w-full px-3 py-2 bg-white/60 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter quantity"
-                            min="0"
-                            step="0.01"
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  <button
-                    type="button"
-                    onClick={addResourceField}
-                    className="w-full px-4 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
-                  >
-                    + Add Another Resource
-                  </button>
-
+          {/* Project Info and Request Section */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Project Info Card */}
+            <Card className="bg-white/80 backdrop-blur-xl shadow-2xl rounded-xl border border-white/20">
+              <CardHeader>
+                <CardTitle className="text-2xl font-bold text-gray-800">{project.name}</CardTitle>
+                <CardDescription className="text-sm text-gray-500">{project.locationName}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-gray-700 text-sm leading-relaxed">{project.description || 'No description provided.'}</p>
+                <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">Priority</label>
-                    <select
-                      value={requestData.priority}
-                      onChange={(e) => setRequestData({...requestData, priority: e.target.value})}
-                      className="w-full px-3 py-2 bg-white/60 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
+                    <p className="text-gray-500">Manager:</p>
+                    <p className="font-medium text-gray-700">{project.manager?.name || 'N/A'}</p>
                   </div>
-
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">Notes</label>
-                    <textarea
-                      value={requestData.notes}
-                      onChange={(e) => setRequestData({...requestData, notes: e.target.value})}
-                      className="w-full px-3 py-2 bg-white/60 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      rows="2"
-                      placeholder="Additional information..."
-                    />
+                    <p className="text-gray-500">Status:</p>
+                    <Badge className="capitalize" variant="secondary">{project.status || 'N/A'}</Badge>
                   </div>
-
-                  <button
-                    type="submit"
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Submit Request
-                  </button>
-                </form>
-              ) : (
-                <div className="space-y-3">
-                  {loading ? (
-                    <div className="text-center py-4">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                      <p className="text-sm text-gray-500 mt-2">Loading resources...</p>
-                    </div>
-                  ) : projectResources.length > 0 ? (
-                    projectResources.map((resource, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-white/60 rounded-lg border border-gray-200/50">
-                        <div>
-                          <div className="font-medium text-gray-700">{resource.name}</div>
-                          <div className="text-sm text-gray-500">{resource.quantity}</div>
-                        </div>
-                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          resource.status === 'available' ? 'bg-green-100 text-green-700' :
-                          resource.status === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-red-100 text-red-700'
-                        }`}>
-                          {resource.status === 'available' ? 'Available' :
-                           resource.status === 'medium' ? 'Medium' : 'Low'}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-4">
-                      <p className="text-sm text-gray-500 mt-2">No resources available</p>
+                  {project.budget != null && (
+                    <div className="col-span-2">
+                      <p className="text-gray-500">Project Budget:</p>
+                      <p className="font-medium text-gray-700">${project.budget.toFixed(2)} USD</p>
                     </div>
                   )}
+                  {project.spent_budget != null && ( // Display spent budget if available
+                    <div className="col-span-2">
+                      <p className="text-gray-500">Budget Spent:</p>
+                      <p className="font-medium text-red-600">${project.spent_budget.toFixed(2)} USD</p>
+                    </div>
+                   )}
+                   {project.budget != null && (
+                    <div className="col-span-2">
+                       <p className="text-gray-500">Remaining Budget:</p>
+                       <p className={`font-medium ${remainingBudget < 0 ? 'text-red-600' : 'text-green-600'}`}>${remainingBudget.toFixed(2)} USD</p>
+                    </div>
+                   )}
                 </div>
-              )}
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Back Button */}
-            <div className="mt-6">
-              <button 
-                onClick={() => navigate(-1)}
-                className="px-6 py-3 bg-white/80 backdrop-blur-xl rounded-xl shadow-lg text-gray-700 hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 border border-white/20"
-              >
-                Back
-              </button>
-            </div>
+            {/* Existing Project Resources Card */}
+            <Card className="bg-white/80 backdrop-blur-xl shadow-2xl rounded-xl border border-white/20">
+              <CardHeader>
+                <CardTitle className="text-xl font-bold text-gray-800">Existing Resources</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="text-center text-gray-500">Loading resources...</div>
+                ) : projectResources.length === 0 ? (
+                  <div className="text-center text-gray-500">No resources assigned to this project yet.</div>
+                ) : (
+                  <ul className="space-y-3">
+                    {projectResources.map((resource, index) => (
+                      <li key={index} className="flex justify-between items-center text-sm text-gray-700">
+                        <span>{resource.name}</span>
+                        <Badge variant={resource.status === 'low' ? 'destructive' : resource.status === 'medium' ? 'secondary' : 'default'} className="capitalize">
+                          {resource.quantity}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Request Resources Card */}
+            <Card className="bg-white/80 backdrop-blur-xl shadow-2xl rounded-xl border border-white/20">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-xl font-bold text-gray-800">Request Resources</CardTitle>
+                <Button variant="outline" size="sm" onClick={() => setShowRequestForm(!showRequestForm)}>
+                  {showRequestForm ? 'Cancel' : 'New Request'}
+                </Button>
+              </CardHeader>
+              <AnimatePresence>
+              {showRequestForm && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <CardContent className="space-y-4">
+                    <form onSubmit={handleRequestSubmit} className="space-y-4">
+                      {requestData.resources.map((resource, index) => (
+                        <div key={index} className="grid grid-cols-3 gap-2 items-center">
+                          <div className="col-span-2">
+                            <Label htmlFor={`resource-type-${index}`} className="sr-only">Resource Type</Label>
+                            <Select
+                              value={resource.type}
+                              onValueChange={(value) => updateResource(index, 'type', value)}
+                            >
+                              <SelectTrigger id={`resource-type-${index}`}>
+                                <SelectValue placeholder="Select resource" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {resourceTypes.map(type => (
+                                  <SelectItem key={type.id} value={type.id}>{`${type.name} (${type.unit})`}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                             <Label htmlFor={`resource-quantity-${index}`} className="sr-only">Quantity</Label>
+                             <Input
+                                id={`resource-quantity-${index}`}
+                                type="number"
+                                min="1"
+                                value={resource.quantity}
+                                onChange={(e) => updateResource(index, 'quantity', e.target.value)}
+                                placeholder="Qty"
+                             />
+                          </div>
+                         {requestData.resources.length > 1 && (
+                           <Button type="button" variant="ghost" size="sm" onClick={() => removeResourceField(index)} className="col-span-1">
+                              <MinusCircle className="h-4 w-4 text-red-600" />
+                           </Button>
+                         )}
+                        </div>
+                      ))}
+
+                      <Button type="button" variant="outline" size="sm" onClick={addResourceField}>
+                        <PlusCircle className="h-4 w-4 mr-2" /> Add Another Resource
+                      </Button>
+
+                      <div>
+                        <Label htmlFor="priority">Priority</Label>
+                        <Select
+                          value={requestData.priority}
+                          onValueChange={(value) => setRequestData({ ...requestData, priority: value })}
+                        >
+                          <SelectTrigger id="priority">
+                            <SelectValue placeholder="Select priority" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Low</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="high">High</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="notes">Notes (Optional)</Label>
+                        <Textarea
+                          id="notes"
+                          value={requestData.notes}
+                          onChange={(e) => setRequestData({ ...requestData, notes: e.target.value })}
+                          placeholder="Add any relevant notes..."
+                        />
+                      </div>
+
+                      {/* Cost and Budget Info */}
+                      <div className="mt-4 p-4 bg-gray-100 rounded-md">
+                         <div className="flex justify-between text-sm font-medium">
+                            <span>Total Request Cost:</span>
+                            <span>${totalRequestCost.toFixed(2)} USD</span>
+                         </div>
+                         {project.budget != null && (
+                           <div className="flex justify-between text-sm font-medium mt-2">
+                             <span>Remaining Project Budget:</span>
+                             <span className={`${remainingBudget < 0 ? 'text-red-600' : 'text-green-600'}`}>${remainingBudget.toFixed(2)} USD</span>
+                           </div>
+                         )}
+                         {!canAffordRequest && project.budget != null && (
+                            <p className="text-red-600 text-xs mt-2">Warning: This request exceeds the remaining project budget.</p>
+                         )}
+                      </div>
+
+                      <Button type="submit" className="w-full" disabled={!canAffordRequest && project.budget != null}>
+                        Submit Request
+                      </Button>
+                    </form>
+                  </CardContent>
+                </motion.div>
+              )}
+              </AnimatePresence>
+            </Card>
           </div>
         </div>
       </div>
