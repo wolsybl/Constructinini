@@ -72,6 +72,20 @@ export default function AdminDashboardPage() {
 
   const handleStatusUpdate = async (requestId, newStatus) => {
     try {
+      // Find the request being updated from the local state to get the old status
+      const requestToUpdate = requests.find(req => req.id === requestId);
+      if (!requestToUpdate) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Request not found."
+        });
+        return;
+      }
+
+      const oldStatus = requestToUpdate.status;
+
+      // Update the main request status in the database
       const { error } = await supabase
         .from('resource_requests')
         .update({ status: newStatus })
@@ -86,13 +100,27 @@ export default function AdminDashboardPage() {
           : request
       ));
 
-      // Update stats
-      setStats(prev => ({
-        ...prev,
-        pendingRequests: newStatus === 'pending' ? prev.pendingRequests + 1 : prev.pendingRequests - 1,
-        approvedRequests: newStatus === 'approved' ? prev.approvedRequests + 1 : prev.approvedRequests - 1,
-        rejectedRequests: newStatus === 'rejected' ? prev.rejectedRequests + 1 : prev.rejectedRequests - 1
-      }));
+      // Update stats based on status transition
+      setStats(prev => {
+        const updatedStats = { ...prev };
+        
+        // Decrement old status count
+        if (oldStatus === 'pending') updatedStats.pendingRequests--;
+        else if (oldStatus === 'approved') updatedStats.approvedRequests--;
+        else if (oldStatus === 'rejected') updatedStats.rejectedRequests--;
+
+        // Increment new status count
+        if (newStatus === 'pending') updatedStats.pendingRequests++;
+        else if (newStatus === 'approved') updatedStats.approvedRequests++;
+        else if (newStatus === 'rejected') updatedStats.rejectedRequests++;
+        // Note: 'completed' requests don't affect the visible stats (pending, approved, rejected)
+
+        return updatedStats;
+      });
+
+      // Close the modal after successful update
+      setIsDetailsModalOpen(false);
+      setSelectedRequest(null); // Clear selected request
 
       toast({
         title: "Status Updated",
@@ -102,7 +130,7 @@ export default function AdminDashboardPage() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to update request status."
+        description: error.message || "Failed to update request status."
       });
     }
   };

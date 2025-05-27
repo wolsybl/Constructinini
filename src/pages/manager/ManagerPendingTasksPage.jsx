@@ -333,6 +333,11 @@ export default function ManagerPendingTasksPage() {
                           placeholder="Add a comment..."
                           value={commentInputs[task.id] || ''}
                           onChange={(e) => handleCommentInputChange(task.id, e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              handlePostComment(task);
+                            }
+                          }}
                           className="flex-grow bg-background/70"
                           disabled={postingComment}
                         />

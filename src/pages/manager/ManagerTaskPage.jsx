@@ -86,7 +86,14 @@ const CreateTaskModal = ({ isOpen, setIsOpen, projectId, onTaskCreate, workersOn
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="taskDescription" className="text-right text-muted-foreground">Description</Label>
-              <Textarea id="taskDescription" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-3 bg-background/70" placeholder="Detailed task instructions" />
+              <Textarea 
+                id="taskDescription" 
+                key="task-description-textarea"
+                value={description} 
+                onChange={(e) => setDescription(e.target.value)} 
+                className="col-span-3 bg-background/70" 
+                placeholder="Detailed task instructions" 
+              />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="dueDate" className="text-right text-muted-foreground">Due Date</Label>

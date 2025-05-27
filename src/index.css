@@ -1,4 +1,3 @@
-
     @tailwind base;
     @tailwind components;
     @tailwind utilities;
@@ -43,7 +42,7 @@
         --background: 222.2 84% 4.9%;
         --foreground: 210 40% 98%;
 
-        --card: 222.2 84% 4.9%;
+        --card: 222.2 84% 8%; /* Adjusted for subtle contrast */
         --card-foreground: 210 40% 98%;
 
         --popover: 222.2 84% 4.9%;
@@ -59,7 +58,7 @@
         --tertiary-foreground: 0 0% 100%;
 
         --muted: 217.2 32.6% 17.5%;
-        --muted-foreground: 215 20.2% 65.1%;
+        --muted-foreground: 215 20.2% 30%; /* Further adjusted for less contrast on dark cards */
 
         --accent: 30 90% 55%;
         --accent-foreground: 0 0% 100%;
@@ -88,6 +87,21 @@
     }
 
     .glassmorphism-card {
-      @apply bg-card/80 backdrop-blur-lg border border-card/20 shadow-xl;
+      @apply bg-card/80 backdrop-blur-lg border border-card/20 shadow-xl dark:bg-card/95;
+    }
+
+    @keyframes gradient-shift {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 100% 50%; }
+    }
+    
+    .animated-gradient-text {
+      background-size: 200% auto; /* Make the background wider than the text */
+      animation: gradient-shift 15s ease infinite alternate; /* Apply the animation */
+      /* These are already on your existing title, but good to include for completeness */
+      /* background-clip: text; */
+      /* -webkit-background-clip: text; */
+      /* text-fill-color: transparent; */
+      /* -webkit-text-fill-color: transparent; */
     }
   

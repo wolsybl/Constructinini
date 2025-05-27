@@ -107,7 +107,7 @@ export default function SystemSettingsPage() {
     const head = [['Name', 'Hours Worked', 'Project', 'Payment (USD)']];
     const body = sortedAttendance.map(row => [
       row.name,
-      row.hoursWorked,
+      row.hoursWorked.toFixed(2),
       row.project,
       row.payment,
     ]);
@@ -134,7 +134,7 @@ export default function SystemSettingsPage() {
   const totalHours = attendanceData.reduce((sum, a) => sum + Number(a.hoursWorked), 0);
 
   return (
-    <div className="min-h-screen bg-white py-12 px-2 md:px-0 flex flex-col items-center">
+    <div className="min-h-screen bg-background py-12 px-2 md:px-0 flex flex-col items-center">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -180,21 +180,21 @@ export default function SystemSettingsPage() {
               </Button>
             </div>
             {attendanceData.length > 0 && (
-              <div className="mt-6 bg-background/70 rounded-xl p-6 shadow-inner flex flex-col md:flex-row justify-between items-center gap-6 border border-border">
+              <div className="mt-6 bg-background/70 dark:bg-background/30 rounded-xl p-6 shadow-inner flex flex-col md:flex-row justify-between items-center gap-6 border border-border">
                 <div className="flex flex-col items-center">
                   <span className="text-3xl font-bold text-primary">{attendanceData.length}</span>
                   <span className="text-muted-foreground text-sm">Total Records</span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-3xl font-bold text-green-600">{totalPresent}</span>
+                  <span className="text-3xl font-bold text-green-600 dark:text-green-400">{totalPresent}</span>
                   <span className="text-muted-foreground text-sm">Present</span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-3xl font-bold text-red-500">{totalAbsent}</span>
+                  <span className="text-3xl font-bold text-red-500 dark:text-red-400">{totalAbsent}</span>
                   <span className="text-muted-foreground text-sm">Absent</span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-3xl font-bold text-tertiary">{totalHours}</span>
+                  <span className="text-3xl font-bold text-tertiary">{totalHours.toFixed(2)}</span>
                   <span className="text-muted-foreground text-sm">Total Hours</span>
                 </div>
               </div>

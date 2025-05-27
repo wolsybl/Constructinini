@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Search, CheckCircle, XCircle, Clock, Package, DollarSign, Edit2, Plus } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Search, CheckCircle, XCircle, Clock, Package, DollarSign, Edit2, Plus, ChevronDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function ResourceRequestsPage() {
+  console.log('ResourceRequestsPage component rendered');
   const { toast } = useToast();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +28,7 @@ export default function ResourceRequestsPage() {
     unit: '',
     cost: ''
   });
+  const [isResourcePricesCollapsed, setIsResourcePricesCollapsed] = useState(true);
 
   useEffect(() => {
     fetchRequests();
@@ -118,9 +120,16 @@ export default function ResourceRequestsPage() {
 
   const handleStatusUpdate = async (requestId, newStatus) => {
     try {
+      console.log('=== Starting Status Update ===');
+      console.log('Request ID:', requestId);
+      console.log('New Status:', newStatus);
+
       // Find the request being updated from the local state
       const requestToUpdate = requests.find(req => req.id === requestId);
+      console.log('Current Request State:', requestToUpdate);
+      
       if (!requestToUpdate) {
+        console.error('Request not found in local state');
         toast({
           variant: "destructive",
           title: "Error",
@@ -129,101 +138,170 @@ export default function ResourceRequestsPage() {
         return;
       }
 
-      // If approving the request, perform budget check
-      if (newStatus === 'approved') {
+      // If approving or completing the request, perform budget check and update item statuses
+      if (newStatus === 'approved' || newStatus === 'completed') {
+        console.log('Processing approval/completion...');
         const project = requestToUpdate.projects;
         const requestedItems = requestToUpdate.resource_request_items;
+        console.log('Project:', project);
+        console.log('Requested Items:', requestedItems);
 
-        // Calculate the total cost of requested items
+        // Calculate the total cost of requested items (only if status is approved)
         let requestCost = 0;
-        if (requestedItems && requestedItems.length > 0) {
-          requestCost = requestedItems.reduce((sum, item) => {
-            // Ensure item and resource_types and cost are available and are numbers
-            const quantity = item.quantity ? parseFloat(item.quantity) : 0;
-            const costPerUnit = item.resource_types?.cost ? parseFloat(item.resource_types.cost) : 0;
-            if (!isNaN(quantity) && !isNaN(costPerUnit)) {
-              return sum + (quantity * costPerUnit);
-            } else {
-              console.warn('Invalid quantity or cost for item:', item);
-              return sum; // Skip invalid items
+        // Only calculate cost and update budget if the request is moving TO 'approved'
+        if (newStatus === 'approved' && requestToUpdate.status !== 'approved') {
+            console.log('Calculating request cost...');
+            if (requestedItems && requestedItems.length > 0) {
+              requestCost = requestedItems.reduce((sum, item) => {
+                const quantity = item.quantity ? parseFloat(item.quantity) : 0;
+                const resourceType = resourceTypes.find(rt => rt.id === item.resource_type_id);
+                const costPerUnit = resourceType?.cost ? parseFloat(resourceType.cost) : 0;
+
+                console.log('Item calculation:', {
+                  itemId: item.id,
+                  quantity,
+                  resourceType,
+                  costPerUnit,
+                  itemCost: quantity * costPerUnit
+                });
+
+                if (!isNaN(quantity) && quantity > 0 && !isNaN(costPerUnit)) {
+                  return sum + (quantity * costPerUnit);
+                } else {
+                  console.warn('Invalid quantity or cost for item:', item, resourceType);
+                  return sum;
+                }
+              }, 0);
             }
-          }, 0);
+            console.log('Total request cost:', requestCost);
+
+            const projectBudget = project?.budget ? parseFloat(project.budget) : null;
+            const spentBudget = project?.spent_budget ? parseFloat(project.spent_budget) : 0;
+            console.log('Budget check:', { projectBudget, spentBudget, requestCost });
+
+            if (projectBudget !== null && !isNaN(projectBudget)) {
+              if (spentBudget + requestCost > projectBudget) {
+                console.error('Budget exceeded:', {
+                  spentBudget,
+                  requestCost,
+                  total: spentBudget + requestCost,
+                  budget: projectBudget
+                });
+                toast({
+                  variant: "destructive",
+                  title: "Approval Failed",
+                  description: `Approving this request exceeds the project budget. Remaining: ${(projectBudget - spentBudget).toFixed(2)} USD. Request cost: ${requestCost.toFixed(2)} USD.`
+                });
+                return;
+              }
+            }
+
+            if (project && project.id) {
+              const newSpentBudget = (spentBudget || 0) + requestCost;
+              console.log('Updating project budget:', {
+                projectId: project.id,
+                oldSpentBudget: spentBudget,
+                newSpentBudget
+              });
+
+              const { error: updateBudgetError } = await supabase
+                .from('projects')
+                .update({ spent_budget: newSpentBudget })
+                .eq('id', project.id);
+
+              if (updateBudgetError) {
+                console.error('Budget update failed:', updateBudgetError);
+                toast({
+                  variant: "destructive",
+                  title: "Budget Update Failed",
+                  description: "Failed to update project spent budget in database."
+                });
+                return;
+              }
+              console.log('Budget updated successfully');
+            }
         }
 
-        // Get project budget and spent budget
-        const projectBudget = project?.budget ? parseFloat(project.budget) : null;
-        const spentBudget = project?.spent_budget ? parseFloat(project.spent_budget) : 0;
+        // Update status of associated resource_request_items
+        const newItemStatus = newStatus === 'rejected' ? 'rejected' : 'approved';
+        console.log('Updating items status:', {
+          requestId,
+          newItemStatus,
+          itemsCount: requestedItems?.length
+        });
 
-        // Perform budget check if project has a budget set
-        if (projectBudget !== null && !isNaN(projectBudget)) {
-          if (spentBudget + requestCost > projectBudget) {
-            toast({
-              variant: "destructive",
-              title: "Approval Failed",
-              description: `Approving this request exceeds the project budget. Remaining: ${(projectBudget - spentBudget).toFixed(2)} USD. Request cost: ${requestCost.toFixed(2)} USD.`
-            });
-            return; // Stop here if budget is exceeded
-          }
+        const { error: updateItemsError } = await supabase
+          .from('resource_request_items')
+          .update({ status: newItemStatus })
+          .eq('request_id', requestId);
+
+        if (updateItemsError) {
+          console.error('Items update failed:', updateItemsError);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: `Failed to update item statuses for request ${requestId}.`
+          });
+          return;
         }
-
-        // If budget is not exceeded, update spent budget in the project
-        if (project && project.id) {
-          const newSpentBudget = spentBudget + requestCost;
-          const { error: updateBudgetError } = await supabase
-            .from('projects')
-            .update({ spent_budget: newSpentBudget })
-            .eq('id', project.id);
-
-          if (updateBudgetError) {
-            console.error('Error updating spent budget:', updateBudgetError);
-            // Optionally, revert the request status update if budget update fails
-            // For now, we'll just log and show an error, assuming status update might still be useful.
-            toast({
-              variant: "destructive",
-              title: "Budget Update Failed",
-              description: "Failed to update project spent budget in database."
-            });
-             // Decide if you want to return here or proceed with status update anyway
-             // return; // Uncomment to stop if budget update fails
-          }
-           // Update local state for the project's spent budget
-            setRequests(requests.map(req =>
-              req.projects?.id === project.id
-                ? { ...req, projects: { ...req.projects, spent_budget: newSpentBudget } }
-                : req
-            ));
-        }
+        console.log('Items updated successfully');
       }
 
-      // Proceed with updating the request status
+      // Update the main request status
+      console.log('Updating main request status:', {
+        requestId,
+        newStatus,
+        oldStatus: requestToUpdate.status
+      });
+
       const { error: updateStatusError } = await supabase
         .from('resource_requests')
         .update({ status: newStatus })
         .eq('id', requestId);
 
-      if (updateStatusError) throw updateStatusError; // Throw this error to be caught below
+      if (updateStatusError) {
+        console.error('Main request update failed:', updateStatusError);
+        throw updateStatusError;
+      }
+      console.log('Main request updated successfully');
 
-      // Update local state for the request status
-      setRequests(requests.map(request => 
-        request.id === requestId 
-          ? { ...request, status: newStatus } // Update only the status of the request
-          : request
-      ));
+      // Update local state
+      console.log('Updating local state...');
+      setRequests(prevRequests => {
+        const updatedRequests = prevRequests.map(request =>
+          request.id === requestId
+            ? {
+                ...request,
+                status: newStatus,
+                resource_request_items: request.resource_request_items.map(item => ({
+                  ...item,
+                  status: newStatus === 'rejected' ? 'rejected' : 'approved'
+                }))
+              }
+            : request
+        );
+        console.log('New local state:', updatedRequests.find(r => r.id === requestId));
+        return updatedRequests;
+      });
 
+      // Close modal and clear selected request
+      setIsDetailsModalOpen(false);
+      setSelectedRequest(null);
+
+      // Show success message
       toast({
         title: "Status Updated",
         description: `Request status has been updated to ${newStatus}.`
       });
 
-      // Re-fetch requests to ensure data consistency across all requests if needed
-      // fetchRequests(); // Optional: Uncomment if you need to fully refresh all data
+      console.log('=== Status Update Completed ===');
 
     } catch (error) {
-      console.error('Error updating request status or budget:', error);
+      console.error('=== Status Update Failed ===', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to update request status or budget."
+        description: error.message || "Failed to update request status."
       });
     }
   };
@@ -275,11 +353,11 @@ export default function ResourceRequestsPage() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-700';
-      case 'approved': return 'bg-green-100 text-green-700';
-      case 'rejected': return 'bg-red-100 text-red-700';
-      case 'completed': return 'bg-blue-100 text-blue-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'pending': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400';
+      case 'approved': return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
+      case 'rejected': return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
+      case 'completed': return 'bg-blue-100 dark:bg-gray-700 text-blue-700 dark:text-gray-400';
+      default: return 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300';
     }
   };
 
@@ -295,123 +373,138 @@ export default function ResourceRequestsPage() {
 
     return (
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[600px] bg-card glassmorphism-card">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary">
-              Request Details
-            </DialogTitle>
-            <DialogDescription>
-              Review and manage resource request details.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm text-muted-foreground">Project</Label>
-                <div className="text-sm font-medium">{request.projects?.name}</div>
-              </div>
-              <div>
-                <Label className="text-sm text-muted-foreground">Requester</Label>
-                <div className="text-sm font-medium">{request.profiles?.name}</div>
-              </div>
-              <div>
-                <Label className="text-sm text-muted-foreground">Priority</Label>
-                <div className="text-sm font-medium capitalize">{request.priority}</div>
-              </div>
-              <div>
-                <Label className="text-sm text-muted-foreground">Status</Label>
-                <div className={`text-sm font-medium px-2 py-1 rounded-full inline-block ${getStatusColor(request.status)}`}>
-                  {request.status}
-                </div>
-              </div>
-            </div>
-
-            {/* Add Budget Information */}
-            {request.projects?.budget != null && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm text-muted-foreground">Project Budget</Label>
-                  <div className="text-sm font-medium">{budgetDisplay}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Budget Spent</Label>
-                  <div className="text-sm font-medium">{spentDisplay}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Remaining Budget</Label>
-                  <div className={`text-sm font-medium ${parseFloat(remainingBudget) < 0 ? 'text-red-600' : 'text-green-600'}`}>{remainingBudget} USD</div>
-                </div>
-              </div>
-            )}
-
-            <div>
-              <Label className="text-sm text-muted-foreground">Requested Resources</Label>
-              <div className="mt-2 space-y-2">
-                {request.resource_request_items?.map((item, index) => (
-                  <div key={index} className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              key={request?.id || 'dialog'}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+            >
+              <DialogContent className="sm:max-w-[600px] bg-card glassmorphism-card">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary">
+                    Request Details
+                  </DialogTitle>
+                  <DialogDescription>
+                    Review and manage resource request details.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <div className="font-medium">{item.resource_types?.name}</div>
-                      <div className="text-sm text-muted-foreground">{item.quantity} {item.resource_types?.unit}</div>
+                      <Label className="text-sm text-muted-foreground">Project</Label>
+                      <div className="text-sm font-medium">{request.projects?.name}</div>
                     </div>
-                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
-                      {item.status}
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Requester</Label>
+                      <div className="text-sm font-medium">{request.profiles?.name}</div>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Priority</Label>
+                      <div className="text-sm font-medium capitalize">{request.priority}</div>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Status</Label>
+                      <div className={`text-sm font-medium px-2 py-1 rounded-full inline-block ${getStatusColor(request.status)}`}>
+                        {request.status}
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {request.notes && (
-              <div>
-                <Label className="text-sm text-muted-foreground">Notes</Label>
-                <div className="mt-1 p-2 bg-white/60 rounded-lg text-sm">
-                  {request.notes}
+                  {/* Add Budget Information */}
+                  {request.projects?.budget != null && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Project Budget</Label>
+                        <div className="text-sm font-medium">{budgetDisplay}</div>
+                      </div>
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Budget Spent</Label>
+                        <div className="text-sm font-medium">{spentDisplay}</div>
+                      </div>
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Remaining Budget</Label>
+                        <div className={`text-sm font-medium ${parseFloat(remainingBudget) < 0 ? 'text-red-600' : 'text-green-600'}`}>{remainingBudget} USD</div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Requested Resources</Label>
+                    <div className="mt-2 space-y-2">
+                      {request.resource_request_items?.map((item, index) => (
+                        <div key={index} className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
+                          <div>
+                            <div className="font-medium">{item.resource_types?.name}</div>
+                            <div className="text-sm text-muted-foreground">{item.quantity} {item.resource_types?.unit}</div>
+                          </div>
+                          <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
+                            {item.status}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {request.notes && (
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Notes</Label>
+                      <div className="mt-1 p-2 bg-white/60 rounded-lg text-sm">
+                        {request.notes}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end space-x-2 pt-4">
+                    {request.status === 'pending' && (
+                      <>
+                        <Button
+                          variant="outline"
+                          className="bg-red-50 text-red-600 hover:bg-red-100"
+                          onClick={() => handleStatusUpdate(request.id, 'rejected')}
+                        >
+                          <XCircle className="mr-2 h-4 w-4" /> Reject
+                        </Button>
+                        <Button
+                          className="bg-green-600 text-white hover:bg-green-700"
+                          onClick={() => {
+                            console.log('Approve button clicked for request ID:', request.id);
+                            handleStatusUpdate(request.id, 'approved');
+                          }}
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" /> Approve
+                        </Button>
+                      </>
+                    )}
+                    {request.status === 'approved' && (
+                      <Button
+                        className="bg-blue-600 text-white hover:bg-blue-700"
+                        onClick={() => handleStatusUpdate(request.id, 'completed')}
+                      >
+                        <CheckCircle className="mr-2 h-4 w-4" /> Mark as Completed
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-
-            <div className="flex justify-end space-x-2 pt-4">
-              {request.status === 'pending' && (
-                <>
-                  <Button
-                    variant="outline"
-                    className="bg-red-50 text-red-600 hover:bg-red-100"
-                    onClick={() => handleStatusUpdate(request.id, 'rejected')}
-                  >
-                    <XCircle className="mr-2 h-4 w-4" /> Reject
-                  </Button>
-                  <Button
-                    className="bg-green-600 text-white hover:bg-green-700"
-                    onClick={() => handleStatusUpdate(request.id, 'approved')}
-                  >
-                    <CheckCircle className="mr-2 h-4 w-4" /> Approve
-                  </Button>
-                </>
-              )}
-              {request.status === 'approved' && (
-                <Button
-                  className="bg-blue-600 text-white hover:bg-blue-700"
-                  onClick={() => handleStatusUpdate(request.id, 'completed')}
-                >
-                  <CheckCircle className="mr-2 h-4 w-4" /> Mark as Completed
-                </Button>
-              )}
-            </div>
-          </div>
-        </DialogContent>
+              </DialogContent>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Dialog>
     );
   };
 
   return (
-    <div className="container mx-auto py-8 px-4 md:px-6">
+    <div className="container mx-auto py-12 px-4 md:px-6">
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4"
+        className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-4"
       >
-        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary">
+        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary animated-gradient-text">
           Resource Requests
         </h1>
       </motion.div>
@@ -421,53 +514,60 @@ export default function ResourceRequestsPage() {
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2, duration: 0.5 }}
       >
-        <Card className="glassmorphism-card mb-8">
-          <CardHeader className="flex flex-row items-center justify-between">
+        <Card className="glassmorphism-card mb-10">
+          <CardHeader className="flex flex-row items-center justify-between cursor-pointer" onClick={() => setIsResourcePricesCollapsed(!isResourcePricesCollapsed)}>
             <div>
               <CardTitle>Resource Prices</CardTitle>
               <CardDescription>Manage prices for available resources</CardDescription>
             </div>
-            <Button
-              onClick={() => setIsNewResourceModalOpen(true)}
-              className="bg-primary hover:bg-primary/90"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Resource
-            </Button>
+            <div className="flex items-center">
+               <Button
+                onClick={(e) => { // Prevent click event from toggling collapse
+                  e.stopPropagation();
+                  setIsNewResourceModalOpen(true);
+                }}
+                className="bg-primary hover:bg-primary/90 mr-4"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Resource
+              </Button>
+              <motion.div
+                animate={{ rotate: isResourcePricesCollapsed ? 0 : 180 }}
+                transition={{ duration: 0.3 }}
+              >
+                 <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              </motion.div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {!isResourcePricesCollapsed && (
+            <CardContent className="p-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {resourceTypes.map((resource) => (
-                <Card key={resource.id} className="glassmorphism-card">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="font-medium">{resource.name}</h3>
-                        <p className="text-sm text-muted-foreground">{resource.unit}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-semibold">${resource.cost || 0}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedResource(resource);
-                            setNewPrice(resource.cost?.toString() || '');
-                            setIsPriceModalOpen(true);
-                          }}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
+                <Card key={resource.id} className="glassmorphism-card p-4 flex items-center justify-between hover:shadow-md transition-shadow duration-200">
+                  <div className="flex-grow">
+                    <h3 className="font-medium text-primary">{resource.name}</h3>
+                    <p className="text-sm text-muted-foreground">{resource.unit}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-semibold text-accent">${resource.cost || 0}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedResource(resource);
+                        setNewPrice(resource.cost?.toString() || '');
+                        setIsPriceModalOpen(true);
+                      }}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </Card>
               ))}
-            </div>
-          </CardContent>
+            </CardContent>
+          )}
         </Card>
 
-        <Card className="glassmorphism-card mb-8">
+        <Card className="glassmorphism-card mb-10">
           <CardHeader>
             <CardTitle>Filter Requests</CardTitle>
             <CardDescription>Search requests by project, requester, or status.</CardDescription>
@@ -486,23 +586,24 @@ export default function ResourceRequestsPage() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredRequests.map((request, index) => (
-            <motion.div
-              key={request.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 * index + 0.3, duration: 0.4 }}
-            >
-              <Card className="glassmorphism-card h-full flex flex-col">
-                <CardHeader>
-                  <CardTitle className="text-xl text-primary">{request.projects?.name}</CardTitle>
-                  <CardDescription className="flex items-center text-muted-foreground">
-                    <Package size={14} className="mr-1" /> Resource Request
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                  <div className="space-y-2">
+        {/* Scrollable container for requests list */}
+        <div className="mb-8 max-h-[600px] overflow-y-auto pr-2 rounded-b-lg">
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {filteredRequests.map((request, index) => (
+              <motion.div
+                key={request.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 * index, duration: 0.4 }}
+              >
+                <Card className={`glassmorphism-card h-full flex flex-col hover:shadow-xl hover:bg-white/10 dark:hover:bg-gray-800/10 transition-all duration-300 border-l-4 ${getStatusColor(request.status).replace('bg', 'border').replace('-100', '-500')}`}>
+                  <CardHeader>
+                    <CardTitle className="text-xl text-primary">{request.projects?.name}</CardTitle>
+                    <CardDescription className="flex items-center text-muted-foreground">
+                      <Package size={14} className="mr-1" /> Resource Request
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-grow p-6 space-y-3">
                     <p className="text-sm">
                       <span className="font-semibold text-muted-foreground">Requester:</span> {request.profiles?.name}
                     </p>
@@ -524,42 +625,45 @@ export default function ResourceRequestsPage() {
                     <p className="text-sm text-muted-foreground">
                       {new Date(request.created_at).toLocaleDateString()}
                     </p>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-between items-center pt-4 border-t border-gray-200/50">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedRequest(request);
-                      setIsDetailsModalOpen(true);
-                    }}
-                  >
-                    View Details
-                  </Button>
-                  {request.status === 'pending' && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-red-50 text-red-600 hover:bg-red-100"
-                        onClick={() => handleStatusUpdate(request.id, 'rejected')}
-                      >
-                        <XCircle className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="bg-green-600 text-white hover:bg-green-700"
-                        onClick={() => handleStatusUpdate(request.id, 'approved')}
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </CardFooter>
-              </Card>
-            </motion.div>
-          ))}
+                  </CardContent>
+                  <CardFooter className="flex justify-between items-center pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedRequest(request);
+                        setIsDetailsModalOpen(true);
+                      }}
+                    >
+                      View Details
+                    </Button>
+                    {request.status === 'pending' && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50"
+                          onClick={() => handleStatusUpdate(request.id, 'rejected')}
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="bg-green-600 text-white hover:bg-green-700"
+                          onClick={() => {
+                            console.log('Approve button clicked for request ID:', request.id);
+                            handleStatusUpdate(request.id, 'approved');
+                          }}
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </CardFooter>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
         </div>
 
         {filteredRequests.length === 0 && (

@@ -81,7 +81,7 @@ export default function WorkerSiteViewPage() {
         >
           <Card className="glassmorphism-card">
             <CardHeader>
-              <CardTitle className="text-xl flex items-center"><ListChecks size={22} className="mr-2 text-tertiary" /> My Tasks on this Site</CardTitle>
+              <CardTitle className="text-xl flex items-center"><ListChecks size={22} className="mr-2 text-tertiary" /> Tasks on this Site</CardTitle>
             </CardHeader>
             <CardContent>
               {projectTasks.length > 0 ? (

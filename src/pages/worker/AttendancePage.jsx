@@ -34,21 +34,37 @@ import React, { useState, useRef, useEffect } from 'react';
       const canvasRef = useRef(null);
       const { toast } = useToast();
       const { user, getProjectById, projectAssignments } = useAuth();
+      const [isRetaking, setIsRetaking] = useState(false);
 
       const assignedProjectAssignment = projectAssignments.find(assignment => assignment.user_id === user?.id);
       const assignedProject = assignedProjectAssignment ? getProjectById(assignedProjectAssignment.project_id) : null;
 
       const startCamera = async () => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          toast({ variant: "destructive", title: "Camera Error", description: "Your browser does not support camera access." });
+          return;
+        }
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
+            videoRef.current.play(); // Ensure playback starts
           }
           setIsCameraActive(true);
           setPhoto(null);
         } catch (err) {
           console.error("Error accessing camera:", err);
-          toast({ variant: "destructive", title: "Camera Error", description: "Could not access camera. Please check permissions." });
+          let errorMessage = "Could not access camera.";
+          if (err.name === "NotAllowedError") {
+            errorMessage = "Camera access denied. Please grant permission in your browser settings.";
+          } else if (err.name === "NotFoundError") {
+            errorMessage = "No camera found on this device.";
+          } else if (err.name === "NotReadableError") {
+             errorMessage = "Camera is already in use by another application.";
+          } else if (err.name === "OverconstrainedError") {
+             errorMessage = "Camera constraints not supported.";
+          }
+          toast({ variant: "destructive", title: "Camera Error", description: errorMessage });
         }
       };
 
@@ -69,7 +85,10 @@ import React, { useState, useRef, useEffect } from 'react';
           context.drawImage(video, 0, 0, canvas.width, canvas.height);
           const dataUrl = canvas.toDataURL('image/jpeg');
           setPhoto(dataUrl);
-          stopCamera();
+          setTimeout(() => {
+              stopCamera();
+              setIsRetaking(false);
+          }, 300);
         }
       };
 
@@ -243,7 +262,7 @@ import React, { useState, useRef, useEffect } from 'react';
                 ) : photo ? (
                   <div className="relative">
                     <img  alt="Captured attendance photo" className="w-full h-auto rounded-md border aspect-video object-cover" src={photo} />
-                    <Button onClick={startCamera} variant="outline" size="sm" className="absolute top-2 right-2 bg-background/70">Retake</Button>
+                    <Button onClick={() => { setIsRetaking(true); startCamera(); }} variant="outline" size="sm" className="absolute top-2 right-2 bg-background/70" disabled={isRetaking}>Retake</Button>
                   </div>
                 ) : (
                   <Button onClick={startCamera} className="w-full bg-secondary hover:bg-secondary/80 text-secondary-foreground">

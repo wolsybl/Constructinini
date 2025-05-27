@@ -10,10 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { XCircle, PlusCircle, MinusCircle } from 'lucide-react';
+import { XCircle, PlusCircle, MinusCircle, Package, MapPin, ListChecks } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Link } from 'react-router-dom';
+import { CheckCircle2 } from 'lucide-react';
 
 export default function ProjectReadOnlyPage() {
   const { id } = useParams();
@@ -24,6 +26,7 @@ export default function ProjectReadOnlyPage() {
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [projectResources, setProjectResources] = useState([]);
+  const [approvedResources, setApprovedResources] = useState([]);
   const [resourceTypes, setResourceTypes] = useState([]);
   const [requestData, setRequestData] = useState({
     resources: [{ type: '', quantity: '' }],
@@ -31,54 +34,8 @@ export default function ProjectReadOnlyPage() {
     notes: ''
   });
   const [totalRequestCost, setTotalRequestCost] = useState(0);
-
-  const project = projects.find(p => String(p.id) === String(id));
-  
-  useEffect(() => {
-    if (project) {
-      fetchProjectResources();
-      fetchResourceTypes();
-    } else {
-        setLoading(false);
-    }
-  }, [id, project]);
-
-  useEffect(() => {
-    calculateTotalCost();
-  }, [requestData.resources, resourceTypes]);
-
-  if (!project) return <div className="p-8 text-center text-red-600">Project not found or you do not have access.</div>;
-
-  const fetchProjectResources = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('project_resources')
-        .select(`
-          *,
-          resource_types (
-            name,
-            unit
-          )
-        `)
-        .eq('project_id', id);
-
-      if (error) throw error;
-
-      setProjectResources(data.map(resource => ({
-        name: resource.resource_types.name,
-        quantity: `${resource.quantity} ${resource.resource_types.unit}`,
-        status: getResourceStatus(resource.quantity, resource.min_quantity)
-      })));
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch project resources."
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [currentProject, setCurrentProject] = useState(null);
+  const [calculatedSpentBudget, setCalculatedSpentBudget] = useState(0);
 
   const fetchResourceTypes = async () => {
     try {
@@ -107,6 +64,192 @@ export default function ProjectReadOnlyPage() {
       });
     }
   };
+
+  const calculateTotalCost = () => {
+    let total = 0;
+    if (requestData.resources && resourceTypes.length > 0) {
+      requestData.resources.forEach(item => {
+        const resourceType = resourceTypes.find(type => String(type.id) === String(item.type));
+        const quantity = parseFloat(item.quantity);
+        const costPerUnit = parseFloat(resourceType?.cost);
+
+        if (resourceType && !isNaN(quantity) && quantity > 0 && !isNaN(costPerUnit)) {
+          total += quantity * costPerUnit;
+        }
+      });
+    }
+    setTotalRequestCost(total);
+  };
+
+  const fetchProjectResources = async () => {
+    // Implementation of fetchProjectResources
+    // ... existing code ...
+  };
+
+  const fetchApprovedResources = async () => {
+    try {
+      setLoading(true);
+      console.log('Fetching approved resources for project ID:', id);
+      const { data, error } = await supabase
+        .from('resource_request_items')
+        .select(`
+          quantity,
+          status,
+          resource_type_id,
+          resource_types (name, unit),
+          resource_requests (project_id)
+        `)
+        .eq('status', 'approved')
+        .eq('resource_requests.project_id', id);
+
+      if (error) throw error;
+
+      console.log('Data received from Supabase for approved items:', data);
+      console.log('Error fetching approved items:', error);
+
+      const formattedData = data
+        .filter(item => item.resource_requests && String(item.resource_requests.project_id) === String(id))
+        .map(item => ({
+          quantity: item.quantity,
+          status: item.status,
+          resource_type_id: item.resource_type_id,
+          name: item.resource_types?.name,
+          unit: item.resource_types?.unit
+        }))
+        .filter(item => item.name);
+
+      console.log('Formatted data for approved items:', formattedData);
+
+      setApprovedResources(formattedData || []);
+    } catch (error) {
+      console.error('Error fetching approved resources:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch approved resources."
+      });
+      setApprovedResources([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Code inside useEffect that calls these functions
+    // ... existing code ...
+  }, [id, resourceTypes, supabase, calculateTotalCost]);
+
+  useEffect(() => {
+    const foundProject = projects.find(p => String(p.id) === String(id));
+    setCurrentProject(foundProject);
+    if (foundProject) {
+      fetchProjectResources();
+      fetchApprovedResources();
+      fetchResourceTypes();
+
+      // Fetch manager details if manager_id exists
+      if (foundProject.manager_id) {
+        const fetchManager = async () => {
+          try {
+            const { data, error } = await supabase
+              .from('profiles')
+              .select('name')
+              .eq('id', foundProject.manager_id)
+              .single();
+
+            if (error) throw error;
+            
+            if (data) {
+              setCurrentProject(prevProject => ({
+                ...prevProject,
+                manager: data // Add the manager's name to the project state
+              }));
+            }
+          } catch (error) {
+            console.error('Error fetching manager details:', error);
+            // Optionally toast an error, but page should still load
+          }
+        };
+        fetchManager();
+      }
+
+      const resourceItemsChannel = supabase
+        .channel(`resource_request_items_all_changes`)
+        .on('postgres_changes', { 
+            event: '*',
+            schema: 'public',
+            table: 'resource_request_items',
+          }, payload => {
+            console.log('Resource item change received!', payload);
+            fetchApprovedResources();
+          }
+        )
+        .subscribe();
+
+      const projectsChannel = supabase
+        .channel(`projects:id=eq.${id}`)
+        .on('postgres_changes', { 
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'projects',
+            filter: `id=eq.${id}`
+          }, payload => {
+            console.log('Project change received!', payload);
+            console.log('Received updated spent_budget:', payload.new?.spent_budget);
+            if (payload.new) {
+              setCurrentProject(prevProject => ({
+                ...prevProject,
+                ...payload.new,
+                manager: prevProject?.manager || payload.new?.manager
+              }));
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(resourceItemsChannel);
+        supabase.removeChannel(projectsChannel);
+      };
+
+    } else {
+        setLoading(false);
+    }
+  }, [id, projects]);
+
+  useEffect(() => {
+    calculateTotalCost();
+  }, [requestData.resources, resourceTypes]);
+
+  useEffect(() => {
+    // Calculate spent budget from approved resources
+    console.log('Calculating spent budget...');
+    console.log('Approved Resources:', approvedResources);
+    console.log('Resource Types:', resourceTypes);
+    console.log('Current Project for budget calculation:', currentProject);
+    let spent = 0;
+    if (approvedResources.length > 0 && resourceTypes.length > 0) {
+      approvedResources.forEach(approvedItem => {
+        console.log('Processing approved item:', approvedItem);
+        const resourceType = resourceTypes.find(type => type.id === approvedItem.resource_type_id); // Assuming resource_type_id is available in approvedResources
+        console.log('Found resource type:', resourceType);
+        const quantity = parseFloat(approvedItem.quantity);
+        const costPerUnit = parseFloat(resourceType?.cost);
+
+        if (resourceType && !isNaN(quantity) && quantity > 0 && !isNaN(costPerUnit)) {
+          spent += quantity * costPerUnit;
+          console.log(`Item cost: ${quantity} * ${costPerUnit} = ${quantity * costPerUnit}. Current spent: ${spent}`);
+        }
+        else {
+            console.log('Skipping item due to missing resource type or invalid data:', approvedItem, resourceType, quantity, costPerUnit);
+        }
+      });
+    }
+    setCalculatedSpentBudget(spent);
+    console.log('Final calculated spent budget:', spent);
+  }, [approvedResources, resourceTypes, currentProject]);
+
+  if (!currentProject) return <div className="p-8 text-center text-red-600 dark:text-red-400">Project not found or you do not have access.</div>;
 
   const getResourceStatus = (quantity, minQuantity) => {
     if (quantity <= minQuantity * 0.3) return 'low';
@@ -155,7 +298,6 @@ export default function ProjectReadOnlyPage() {
     }
 
     try {
-      // Create resource request
       const { data: request, error: requestError } = await supabase
         .from('resource_requests')
         .insert([{
@@ -170,7 +312,6 @@ export default function ProjectReadOnlyPage() {
 
       if (requestError) throw requestError;
 
-      // Create resource request items
       const requestItems = requestData.resources.map(resource => ({
         request_id: request.id,
         resource_type_id: resource.type,
@@ -195,7 +336,8 @@ export default function ProjectReadOnlyPage() {
         priority: 'medium',
         notes: ''
       });
-      setTotalRequestCost(0); // Reset cost on successful submission
+      setTotalRequestCost(0);
+      fetchApprovedResources();
     } catch (error) {
       console.error('Error submitting request:', error);
       toast({
@@ -206,18 +348,7 @@ export default function ProjectReadOnlyPage() {
     }
   };
 
-  const calculateTotalCost = () => {
-    let total = 0;
-    requestData.resources.forEach(item => {
-      const resourceType = resourceTypes.find(rt => String(rt.id) === String(item.type));
-      if (resourceType && item.quantity) {
-        total += parseFloat(item.quantity) * (resourceType.cost || 0);
-      }
-    });
-    setTotalRequestCost(total);
-  };
-
-  const remainingBudget = (project.budget || 0) - (project.spent_budget || 0);
+  const remainingBudget = (currentProject?.budget || 0) - calculatedSpentBudget;
   const canAffordRequest = totalRequestCost <= remainingBudget;
 
   // Simulated data for demonstration
@@ -229,31 +360,31 @@ export default function ProjectReadOnlyPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-blue-50 to-gray-100 p-4 md:p-6">
+    <div className="min-h-screen w-full bg-background text-foreground p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Map Section */}
           <div className="lg:col-span-2">
-            <div className="relative h-[500px] md:h-[600px] rounded-2xl overflow-hidden shadow-2xl">
+            <div className="relative h-[500px] md:h-[600px] rounded-2xl overflow-hidden shadow-2xl border border-border/20">
               <Maps
                 mapContainerStyle={{ width: '100%', height: '100%' }}
                 center={{
-                  lat: parseFloat(project.latitude) || 4.8133,
-                  lng: parseFloat(project.longitude) || -75.6967,
+                  lat: parseFloat(currentProject.latitude) || 4.8133,
+                  lng: parseFloat(currentProject.longitude) || -75.6967,
                 }}
                 zoom={12}
                 mapId="5795a66c547e6becbb38a780"
               >
                 <Marker position={{
-                  lat: parseFloat(project.latitude),
-                  lng: parseFloat(project.longitude),
+                  lat: parseFloat(currentProject.latitude),
+                  lng: parseFloat(currentProject.longitude),
                 }} />
                 <Circle
                   center={{
-                    lat: parseFloat(project.latitude),
-                    lng: parseFloat(project.longitude),
+                    lat: parseFloat(currentProject.latitude),
+                    lng: parseFloat(currentProject.longitude),
                   }}
-                  radius={project.radius}
+                  radius={currentProject.radius}
                   options={{
                     fillColor: '#007bff',
                     fillOpacity: 0.2,
@@ -269,108 +400,80 @@ export default function ProjectReadOnlyPage() {
               </Maps>
             </div>
 
-            {/* Project Statistics */}
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white/80 backdrop-blur-xl rounded-xl p-4 shadow-lg border border-white/20">
-                <div className="text-sm text-gray-500">Total Resources</div>
-                <div className="text-lg font-semibold text-gray-700">{projectResources.length}</div>
-                <div className="text-xs text-gray-400 mt-1">Different types</div>
-              </div>
-              <div className="bg-white/80 backdrop-blur-xl rounded-xl p-4 shadow-lg border border-white/20">
-                <div className="text-sm text-gray-500">Low Stock</div>
-                <div className="text-lg font-semibold text-red-600">
-                  {projectResources.filter(r => r.status === 'low').length}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">Need attention</div>
-              </div>
-              <div className="bg-white/80 backdrop-blur-xl rounded-xl p-4 shadow-lg border border-white/20">
-                <div className="text-sm text-gray-500">Available</div>
-                <div className="text-lg font-semibold text-green-600">
-                  {projectResources.filter(r => r.status === 'available').length}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">In good condition</div>
-              </div>
-              <div className="bg-white/80 backdrop-blur-xl rounded-xl p-4 shadow-lg border border-white/20">
-                <div className="text-sm text-gray-500">Medium Stock</div>
-                <div className="text-lg font-semibold text-yellow-600">
-                  {projectResources.filter(r => r.status === 'medium').length}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">Monitor closely</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Project Info and Request Section */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Project Info Card */}
-            <Card className="bg-white/80 backdrop-blur-xl shadow-2xl rounded-xl border border-white/20">
+            {/* Approved Resources List */}
+            <Card className="glassmorphism-card mt-4">
               <CardHeader>
-                <CardTitle className="text-2xl font-bold text-gray-800">{project.name}</CardTitle>
-                <CardDescription className="text-sm text-gray-500">{project.locationName}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-gray-700 text-sm leading-relaxed">{project.description || 'No description provided.'}</p>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-500">Manager:</p>
-                    <p className="font-medium text-gray-700">{project.manager?.name || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">Status:</p>
-                    <Badge className="capitalize" variant="secondary">{project.status || 'N/A'}</Badge>
-                  </div>
-                  {project.budget != null && (
-                    <div className="col-span-2">
-                      <p className="text-gray-500">Project Budget:</p>
-                      <p className="font-medium text-gray-700">${project.budget.toFixed(2)} USD</p>
-                    </div>
-                  )}
-                  {project.spent_budget != null && ( // Display spent budget if available
-                    <div className="col-span-2">
-                      <p className="text-gray-500">Budget Spent:</p>
-                      <p className="font-medium text-red-600">${project.spent_budget.toFixed(2)} USD</p>
-                    </div>
-                   )}
-                   {project.budget != null && (
-                    <div className="col-span-2">
-                       <p className="text-gray-500">Remaining Budget:</p>
-                       <p className={`font-medium ${remainingBudget < 0 ? 'text-red-600' : 'text-green-600'}`}>${remainingBudget.toFixed(2)} USD</p>
-                    </div>
-                   )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Existing Project Resources Card */}
-            <Card className="bg-white/80 backdrop-blur-xl shadow-2xl rounded-xl border border-white/20">
-              <CardHeader>
-                <CardTitle className="text-xl font-bold text-gray-800">Existing Resources</CardTitle>
+                <CardTitle className="text-xl font-bold text-foreground">Approved Resources</CardTitle>
+                <CardDescription className="text-sm text-muted-foreground">Materials approved for this project.</CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
-                  <div className="text-center text-gray-500">Loading resources...</div>
-                ) : projectResources.length === 0 ? (
-                  <div className="text-center text-gray-500">No resources assigned to this project yet.</div>
+                  <div className="text-center text-muted-foreground">Loading approved resources...</div>
+                ) : approvedResources.length === 0 ? (
+                  <div className="text-center text-muted-foreground">No approved resources for this project yet.</div>
                 ) : (
                   <ul className="space-y-3">
-                    {projectResources.map((resource, index) => (
-                      <li key={index} className="flex justify-between items-center text-sm text-gray-700">
-                        <span>{resource.name}</span>
-                        <Badge variant={resource.status === 'low' ? 'destructive' : resource.status === 'medium' ? 'secondary' : 'default'} className="capitalize">
-                          {resource.quantity}
-                        </Badge>
+                    {approvedResources.map((resource, index) => (
+                      <li key={index} className="p-3 bg-secondary/30 dark:bg-secondary/50 rounded-md flex justify-between items-center border border-border/20">
+                        <div className="flex items-center gap-2">
+                           <Package size={16} className="text-green-600 dark:text-green-400"/>
+                           <span className="text-foreground">{resource.name}</span>
+                        </div>
+                        <span className="font-medium text-foreground">{resource.quantity} {resource.unit}</span>
                       </li>
                     ))}
                   </ul>
                 )}
               </CardContent>
             </Card>
+          </div>
+
+          {/* Project Info and Request Section */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Project Info Card */}
+            <Card className="glassmorphism-card">
+              <CardHeader>
+                <CardTitle className="text-2xl font-bold text-foreground">{currentProject.name}</CardTitle>
+                <CardDescription className="text-sm text-muted-foreground">{currentProject.locationName}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-foreground text-sm leading-relaxed">{currentProject.description || 'No description provided.'}</p>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Manager:</p>
+                    <p className="font-medium text-foreground">{currentProject.manager?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Status:</p>
+                    <Badge className="capitalize" variant="secondary">{currentProject.status || 'N/A'}</Badge>
+                  </div>
+                  {currentProject.budget != null && (
+                    <div className="col-span-2">
+                      <p className="text-muted-foreground">Project Budget:</p>
+                      <p className="font-medium text-foreground">${currentProject.budget.toFixed(2)} USD</p>
+                    </div>
+                  )}
+                  {currentProject.spent_budget != null && (
+                    <div className="col-span-2">
+                      <p className="text-muted-foreground">Budget Spent:</p>
+                      <p className="font-medium text-red-600 dark:text-red-400">${calculatedSpentBudget.toFixed(2)} USD</p>
+                    </div>
+                   )}
+                   {currentProject.budget != null && (
+                    <div className="col-span-2">
+                       <p className="text-muted-foreground">Remaining Budget:</p>
+                       <p className={`font-medium ${(parseFloat(currentProject.budget) - calculatedSpentBudget) < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>${(parseFloat(currentProject.budget) - calculatedSpentBudget).toFixed(2)} USD</p>
+                    </div>
+                   )}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Request Resources Card */}
-            <Card className="bg-white/80 backdrop-blur-xl shadow-2xl rounded-xl border border-white/20">
+            <Card className="glassmorphism-card">
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-xl font-bold text-gray-800">Request Resources</CardTitle>
-                <Button variant="outline" size="sm" onClick={() => setShowRequestForm(!showRequestForm)}>
+                <CardTitle className="text-xl font-bold text-foreground">Request Resources</CardTitle>
+                <Button variant="outline" size="sm" onClick={() => setShowRequestForm(!showRequestForm)} className="bg-secondary/50 dark:bg-secondary/70 hover:bg-secondary/80 dark:hover:bg-secondary/90">
                   {showRequestForm ? 'Cancel' : 'New Request'}
                 </Button>
               </CardHeader>
@@ -381,57 +484,61 @@ export default function ProjectReadOnlyPage() {
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
                 >
                   <CardContent className="space-y-4">
                     <form onSubmit={handleRequestSubmit} className="space-y-4">
                       {requestData.resources.map((resource, index) => (
-                        <div key={index} className="grid grid-cols-3 gap-2 items-center">
-                          <div className="col-span-2">
-                            <Label htmlFor={`resource-type-${index}`} className="sr-only">Resource Type</Label>
-                            <Select
-                              value={resource.type}
-                              onValueChange={(value) => updateResource(index, 'type', value)}
-                            >
-                              <SelectTrigger id={`resource-type-${index}`}>
-                                <SelectValue placeholder="Select resource" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {resourceTypes.map(type => (
-                                  <SelectItem key={type.id} value={type.id}>{`${type.name} (${type.unit})`}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                             <Label htmlFor={`resource-quantity-${index}`} className="sr-only">Quantity</Label>
-                             <Input
-                                id={`resource-quantity-${index}`}
+                        <div key={index} className="flex gap-2 items-center p-3 bg-background/50 dark:bg-background/70 rounded-md border border-border/20">
+                          <div className="flex-grow grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor={`resource-type-${index}`} className="text-sm text-muted-foreground">Resource Type</Label>
+                              <Select
+                                value={resource.type}
+                                onValueChange={(value) => updateResource(index, 'type', value)}
+                              >
+                                <SelectTrigger id={`resource-type-${index}`} className="bg-background/70 dark:bg-background/50">
+                                  <SelectValue placeholder="Select resource" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {resourceTypes.map(type => (
+                                    <SelectItem key={type.id} value={String(type.id)}>{`${type.name} (${type.unit})`}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label htmlFor={`quantity-${index}`} className="text-sm text-muted-foreground">Quantity</Label>
+                              <Input
+                                id={`quantity-${index}`}
                                 type="number"
                                 min="1"
                                 value={resource.quantity}
                                 onChange={(e) => updateResource(index, 'quantity', e.target.value)}
                                 placeholder="Qty"
-                             />
+                                className="bg-background/70 dark:bg-background/50"
+                              />
+                            </div>
                           </div>
                          {requestData.resources.length > 1 && (
-                           <Button type="button" variant="ghost" size="sm" onClick={() => removeResourceField(index)} className="col-span-1">
-                              <MinusCircle className="h-4 w-4 text-red-600" />
-                           </Button>
-                         )}
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeResourceField(index)} className="text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/30">
+                               <XCircle className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       ))}
 
-                      <Button type="button" variant="outline" size="sm" onClick={addResourceField}>
+                      <Button type="button" variant="outline" size="sm" onClick={addResourceField} className="w-full bg-secondary/50 dark:bg-secondary/70 hover:bg-secondary/80 dark:hover:bg-secondary/90">
                         <PlusCircle className="h-4 w-4 mr-2" /> Add Another Resource
                       </Button>
 
                       <div>
-                        <Label htmlFor="priority">Priority</Label>
+                        <Label htmlFor="priority" className="text-sm text-muted-foreground">Priority</Label>
                         <Select
                           value={requestData.priority}
                           onValueChange={(value) => setRequestData({ ...requestData, priority: value })}
                         >
-                          <SelectTrigger id="priority">
+                          <SelectTrigger id="priority" className="bg-background/70 dark:bg-background/50">
                             <SelectValue placeholder="Select priority" />
                           </SelectTrigger>
                           <SelectContent>
@@ -443,33 +550,35 @@ export default function ProjectReadOnlyPage() {
                       </div>
 
                       <div>
-                        <Label htmlFor="notes">Notes (Optional)</Label>
+                        <Label htmlFor="notes" className="text-sm text-muted-foreground">Notes (Optional)</Label>
                         <Textarea
                           id="notes"
                           value={requestData.notes}
                           onChange={(e) => setRequestData({ ...requestData, notes: e.target.value })}
                           placeholder="Add any relevant notes..."
+                          className="bg-background/70 dark:bg-background/50"
+                          rows={3}
                         />
                       </div>
 
                       {/* Cost and Budget Info */}
-                      <div className="mt-4 p-4 bg-gray-100 rounded-md">
-                         <div className="flex justify-between text-sm font-medium">
+                      <div className="mt-4 p-4 bg-secondary/50 dark:bg-secondary/70 rounded-md">
+                         <div className="flex justify-between text-sm font-medium text-foreground">
                             <span>Total Request Cost:</span>
                             <span>${totalRequestCost.toFixed(2)} USD</span>
                          </div>
-                         {project.budget != null && (
-                           <div className="flex justify-between text-sm font-medium mt-2">
+                         {currentProject.budget != null && (
+                           <div className="flex justify-between text-sm font-medium mt-2 text-foreground">
                              <span>Remaining Project Budget:</span>
-                             <span className={`${remainingBudget < 0 ? 'text-red-600' : 'text-green-600'}`}>${remainingBudget.toFixed(2)} USD</span>
+                             <span className={`${remainingBudget < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>${remainingBudget.toFixed(2)} USD</span>
                            </div>
                          )}
-                         {!canAffordRequest && project.budget != null && (
-                            <p className="text-red-600 text-xs mt-2">Warning: This request exceeds the remaining project budget.</p>
+                         {!canAffordRequest && currentProject.budget != null && (
+                            <p className="text-red-600 dark:text-red-400 text-xs mt-2">Warning: This request exceeds the remaining project budget.</p>
                          )}
                       </div>
 
-                      <Button type="submit" className="w-full" disabled={!canAffordRequest && project.budget != null}>
+                      <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!canAffordRequest && currentProject.budget != null}>
                         Submit Request
                       </Button>
                     </form>
