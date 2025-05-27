@@ -36,6 +36,7 @@ export default function ProjectReadOnlyPage() {
   const [totalRequestCost, setTotalRequestCost] = useState(0);
   const [currentProject, setCurrentProject] = useState(null);
   const [calculatedSpentBudget, setCalculatedSpentBudget] = useState(0);
+  const [isMapApiLoaded, setIsMapApiLoaded] = useState(false);
 
   const fetchResourceTypes = async () => {
     try {
@@ -359,6 +360,13 @@ export default function ProjectReadOnlyPage() {
     completionRate: '85%'
   };
 
+  // Check if project data is available and has coordinates
+  const hasCoordinates = currentProject?.latitude != null && currentProject?.longitude != null;
+
+  const handleMapLoaded = (loaded) => {
+    setIsMapApiLoaded(loaded);
+  };
+
   return (
     <div className="min-h-screen w-full bg-background text-foreground p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
@@ -368,35 +376,40 @@ export default function ProjectReadOnlyPage() {
             <div className="relative h-[500px] md:h-[600px] rounded-2xl overflow-hidden shadow-2xl border border-border/20">
               <Maps
                 mapContainerStyle={{ width: '100%', height: '100%' }}
-                center={{
-                  lat: parseFloat(currentProject.latitude) || 4.8133,
-                  lng: parseFloat(currentProject.longitude) || -75.6967,
-                }}
-                zoom={12}
+                center={hasCoordinates ? { lat: parseFloat(currentProject.latitude), lng: parseFloat(currentProject.longitude) } : { lat: 4.8133, lng: -75.6967 }}
+                zoom={hasCoordinates ? 14 : 12}
                 mapId="5795a66c547e6becbb38a780"
+                mapLoaded={handleMapLoaded}
               >
-                <Marker position={{
-                  lat: parseFloat(currentProject.latitude),
-                  lng: parseFloat(currentProject.longitude),
-                }} />
-                <Circle
-                  center={{
-                    lat: parseFloat(currentProject.latitude),
-                    lng: parseFloat(currentProject.longitude),
-                  }}
-                  radius={currentProject.radius}
-                  options={{
-                    fillColor: '#007bff',
-                    fillOpacity: 0.2,
-                    strokeColor: '#007bff',
-                    strokeOpacity: 0.6,
-                    strokeWeight: 2,
-                    clickable: false,
-                    draggable: false,
-                    editable: false,
-                    visible: true,
-                  }}
-                />
+                {/* Render Marker and Circle only if project data with coordinates is available AND Maps API is loaded */}
+                {hasCoordinates && isMapApiLoaded && currentProject && (
+                  <>
+                    <Marker
+                      position={{ lat: parseFloat(currentProject.latitude), lng: parseFloat(currentProject.longitude) }}
+                      title={currentProject.name || "Project Location"}
+                      options={{
+                        optimized: true,
+                        collisionBehavior: google.maps.CollisionBehavior.OPTIONAL_AND_HIDES_LOWER_PRIORITY
+                      }}
+                    />
+                    <Circle
+                      center={{ lat: parseFloat(currentProject.latitude), lng: parseFloat(currentProject.longitude) }}
+                      radius={currentProject.radius || 100}
+                      options={{
+                        fillColor: '#007bff',
+                        fillOpacity: 0.2,
+                        strokeColor: '#007bff',
+                        strokeOpacity: 0.6,
+                        strokeWeight: 2,
+                        clickable: false,
+                        draggable: false,
+                        editable: false,
+                        visible: true,
+                        zIndex: 1
+                      }}
+                    />
+                  </>
+                )}
               </Maps>
             </div>
 

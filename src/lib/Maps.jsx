@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { GoogleMap, useLoadScript } from '@react-google-maps/api';
 
 const MAPS_API_KEY = 'AIzaSyBKL_jxWNgABqicf8y-GDutFih91zdsghk';
@@ -18,11 +18,20 @@ export default function Maps({
   onClick,
   onLoad,
   mapId,
+  mapLoaded = () => {},
 }) {
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: MAPS_API_KEY,
     libraries,
   });
+
+  useEffect(() => {
+    if(isLoaded){
+      mapLoaded(true);
+    } else {
+      mapLoaded(false);
+    }
+  }, [isLoaded, mapLoaded]);
 
   if (loadError) return <div>Error loading maps</div>;
   if (!isLoaded) return <div>Loading Maps...</div>;
@@ -36,7 +45,7 @@ export default function Maps({
       onLoad={onLoad}
       mapId={mapId}
     >
-      {children}
+      {isLoaded ? children : null}
     </GoogleMap>
   );
 }
