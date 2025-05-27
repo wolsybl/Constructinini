@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,13 +8,13 @@ import { PlusCircle, Search, Edit, Trash2, MapPin, Globe, Users, Building2, Aler
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { Marker, Circle } from '@react-google-maps/api';
+import { Circle } from '@react-google-maps/api';
 import Maps from '@/lib/Maps';
 import { Badge } from '@/components/ui/badge';
 import { fetchManagers } from '@/services/dataService';
 
-// Modal para crear proyecto
-const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
+// Modal unificado para crear/editar proyecto
+const ProjectFormModal = ({ isOpen, setIsOpen, project, onProjectSubmit }) => {
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
   const [locationName, setLocationName] = useState('');
@@ -25,7 +25,38 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
   const [loadingManagers, setLoadingManagers] = useState(false);
   const [radius, setRadius] = useState(100);
   const [projectBudget, setProjectBudget] = useState('');
+  const markerRef = useRef(null);
+  const circleRef = useRef(null);
+  const mapRef = useRef(null);
   const { toast } = useToast();
+
+  const isEditMode = Boolean(project);
+
+  useEffect(() => {
+    console.log('Project prop effect triggered. Project:', project);
+    if (project) {
+      setProjectName(project.name || '');
+      setProjectDescription(project.description || '');
+      setLocationName(project.locationName || '');
+      // Ensure coordinates are treated as numbers by the map logic later
+      setLatitude(project.latitude ? project.latitude.toString() : '');
+      setLongitude(project.longitude ? project.longitude.toString() : '');
+      setSelectedManager(project.manager_id || '');
+      setRadius(project.radius || 100);
+      setProjectBudget(project.budget?.toString() || '');
+      console.log('State set from project:', { lat: project.latitude, lng: project.longitude, radius: project.radius });
+    } else {
+      // Reset form when creating new project
+      setProjectName('');
+      setProjectDescription('');
+      setLocationName('');
+      setLatitude('');
+      setLongitude('');
+      setSelectedManager('');
+      setRadius(100);
+      setProjectBudget('');
+    }
+  }, [project]);
 
   useEffect(() => {
     const loadManagers = async () => {
@@ -42,9 +73,134 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
     loadManagers();
   }, [toast]);
 
+  useEffect(() => {
+    console.log('useEffect triggered. Latitude:', latitude, 'Longitude:', longitude, 'Map Ref:', mapRef.current ? 'Available' : 'Not Available');
+
+    if (mapRef.current && latitude && longitude) {
+    const lat = parseFloat(latitude);
+      const lng = parseFloat(longitude);
+
+      console.log('Map drawing useEffect check: Lat:', latitude, 'Lng:', longitude, 'Radius:', radius, 'Map Available:', mapRef.current ? 'Yes' : 'No');
+
+      // Validate coordinates
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        console.log('Valid coordinates and map available. Attempting to draw marker/circle.');
+        // Clear existing marker and circle
+        if (markerRef.current) {
+          markerRef.current.setMap(null);
+          markerRef.current = null;
+        }
+        if (circleRef.current) {
+          circleRef.current.setMap(null);
+          circleRef.current = null;
+        }
+
+        // Create marker
+        const marker = new google.maps.Marker({
+          position: { lat: lat, lng: lng },
+          map: mapRef.current,
+          title: projectName || "Project Location",
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 12,
+            fillColor: "#007bff",
+            fillOpacity: 1,
+            strokeColor: "#ffffff",
+            strokeWeight: 2,
+          },
+          zIndex: 2
+        });
+
+        // Create circle
+        const circle = new google.maps.Circle({
+                          strokeColor: '#007bff',
+                          strokeOpacity: 0.6,
+                          strokeWeight: 2,
+          fillColor: '#007bff',
+          fillOpacity: 0.2,
+          map: mapRef.current,
+          center: { lat: lat, lng: lng },
+          radius: radius,
+          zIndex: 1
+        });
+
+        // Store references
+        markerRef.current = marker;
+        circleRef.current = circle;
+
+        // Center map on the new location, but only if not already centered closely
+        const currentCenter = mapRef.current.getCenter();
+        const newPosition = new google.maps.LatLng(lat, lng);
+        const distance = google.maps.geometry.spherical.computeDistanceBetween(currentCenter, newPosition);
+        if (distance > radius * 0.5) { // Only pan if the distance is significant
+             mapRef.current.panTo({ lat: lat, lng: lng });
+             console.log('Map centered on new location.');
+        }
+
+      } else {
+        console.log('Invalid coordinates or empty. Clearing marker/circle.');
+        // Clean up marker and circle if coordinates are invalid or empty
+        if (markerRef.current) {
+          markerRef.current.setMap(null);
+          markerRef.current = null;
+        }
+        if (circleRef.current) {
+          circleRef.current.setMap(null);
+          circleRef.current = null;
+        }
+      }
+    } else {
+       // Clean up marker and circle if map is not loaded or modal is closed
+       if (markerRef.current) {
+          markerRef.current.setMap(null);
+          markerRef.current = null;
+        }
+        if (circleRef.current) {
+          circleRef.current.setMap(null);
+          circleRef.current = null;
+        }
+    }
+
+    // Cleanup function to remove marker and circle when component unmounts or dependencies change
+    return () => {
+      if (markerRef.current) {
+        markerRef.current.setMap(null);
+        markerRef.current = null;
+      }
+      if (circleRef.current) {
+        circleRef.current.setMap(null);
+        circleRef.current = null;
+      }
+    };
+
+  }, [latitude, longitude, radius, mapRef.current]); // Depend on latitude, longitude, radius and map instance
+
+  // Cleanup effect specifically for modal close/unmount
+  useEffect(() => {
+    return () => {
+      if (markerRef.current) {
+      try {
+          markerRef.current.setMap(null);
+          markerRef.current = null;
+      } catch (error) {
+          console.error('Error cleaning up marker on modal close:', error);
+        }
+      }
+       if (circleRef.current) {
+        try {
+          circleRef.current.setMap(null);
+          circleRef.current = null;
+        } catch (error) {
+          console.error('Error cleaning up circle on modal close:', error);
+        }
+      }
+    };
+  }, []); // Cleanup when modal unmounts
+
   const handleMapClick = (e) => {
-    setLatitude(e.latLng.lat());
-    setLongitude(e.latLng.lng());
+    console.log('Map clicked. Lat:', e.latLng.lat(), 'Lng:', e.latLng.lng());
+    setLatitude(e.latLng.lat().toString());
+    setLongitude(e.latLng.lng().toString());
   };
 
   const handleSubmit = async (e) => {
@@ -69,22 +225,37 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
     }
 
     try {
-      await onProjectCreate({ 
-        name: projectName, 
-        description: projectDescription, 
-        locationName, 
-        latitude: lat, 
+      const projectData = {
+        name: projectName,
+        description: projectDescription,
+        locationName,
+        latitude: lat,
         longitude: lon,
-        status: 'Planning', 
         manager_id: selectedManager,
         radius,
         budget: budgetValue
-      });
+      };
+
+      if (isEditMode) {
+        projectData.id = project.id;
+        projectData.status = project.status;
+      } else {
+        projectData.status = 'Planning';
+      }
+
+      await onProjectSubmit(projectData);
       setIsOpen(false);
-      toast({ title: "Success", description: "Project created successfully." });
+      toast({ 
+        title: isEditMode ? "Project Updated" : "Project Created", 
+        description: isEditMode ? "Project has been updated successfully." : "Project has been created successfully." 
+      });
     } catch (error) {
-      console.error('Error creating project:', error);
-      toast({ variant: "destructive", title: "Error", description: "Failed to create project." });
+      console.error(`Error ${isEditMode ? 'updating' : 'creating'} project:`, error);
+      toast({ 
+        variant: "destructive", 
+        title: "Error", 
+        description: `Failed to ${isEditMode ? 'update' : 'create'} project.` 
+      });
     }
   };
 
@@ -98,10 +269,10 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
         >
           <DialogHeader className="space-y-3 pb-4 border-b border-primary/10">
             <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-tertiary">
-              Create New Project
+              {isEditMode ? 'Edit Project' : 'Create New Project'}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground/80">
-              Fill in the details below to create a new construction project.
+              {isEditMode ? 'Modify the details below and save changes.' : 'Fill in the details below to create a new construction project.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -232,340 +403,8 @@ const CreateProjectModal = ({ isOpen, setIsOpen, onProjectCreate }) => {
                     />
                   </div>
                 ) : (
-                  <select 
-                    id="manager" 
-                    value={selectedManager} 
-                    onChange={(e) => setSelectedManager(e.target.value)} 
-                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 p-2 rounded-md"
-                  >
-                    <option value="" disabled>Select a manager</option>
-                    {managers.map(manager => (
-                      <option key={manager.id} value={manager.id}>{manager.name}</option>
-                    ))}
-                  </select>
-                )}
-              </motion.div>
-
-              <motion.div 
-                className="flex flex-col gap-2 bg-primary/5 rounded-md p-4"
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.8 }}
-              >
-                <Label htmlFor="radius" className="text-muted-foreground flex items-center gap-2">
-                  <Globe size={16} className="text-primary" />
-                  Project radius for worker check-in (meters)
-                </Label>
-                <input
-                  id="radius"
-                  type="range"
-                  min={50}
-                  max={1000}
-                  step={10}
-                  value={radius}
-                  onChange={e => setRadius(Number(e.target.value))}
-                  className="w-full accent-primary"
-                />
-                <div className="text-xs text-muted-foreground text-right">
-                  {radius} meters
-                </div>
-              </motion.div>
-
-              <motion.div 
-                className="h-64 rounded-md overflow-hidden border border-primary/20"
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.9 }}
-              >
-                <Maps
-                  mapContainerStyle={{ width: '100%', height: '100%' }}
-                  center={{ lat: parseFloat(latitude) || 4.8133, lng: parseFloat(longitude) || -75.6967 }}
-                  zoom={12}
-                  onClick={handleMapClick}
-                  mapId="5795a66c547e6becbb38a780"
-                >
-                  {latitude && longitude && (
-                    <>
-                      <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
-                      <Circle
-                        center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
-                        radius={radius}
-                        options={{
-                          fillColor: '#007bff',
-                          fillOpacity: 0.2,
-                          strokeColor: '#007bff',
-                          strokeOpacity: 0.6,
-                          strokeWeight: 2,
-                          clickable: false,
-                          draggable: false,
-                          editable: false,
-                          visible: true,
-                        }}
-                      />
-                    </>
-                  )}
-                </Maps>
-              </motion.div>
-            </motion.div>
-
-            <DialogFooter className="border-t border-primary/10 pt-4">
-              <motion.div
-                className="flex gap-3 w-full"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1 }}
-              >
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsOpen(false)} 
-                  className="flex-1 bg-background/50 border-primary/20 hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="flex-1 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white transition-all duration-200"
-                >
-                  Create Project
-                </Button>
-              </motion.div>
-            </DialogFooter>
-          </form>
-        </motion.div>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-// Modal para editar proyecto
-const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
-  const [projectName, setProjectName] = useState('');
-  const [projectDescription, setProjectDescription] = useState('');
-  const [locationName, setLocationName] = useState('');
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
-  const [selectedManager, setSelectedManager] = useState('');
-  const [managers, setManagers] = useState([]);
-  const [loadingManagers, setLoadingManagers] = useState(false);
-  const [radius, setRadius] = useState(100);
-  const [projectBudget, setProjectBudget] = useState('');
-  const { toast } = useToast();
-
-  useEffect(() => {
-    if (project) {
-      setProjectName(project.name || '');
-      setProjectDescription(project.description || '');
-      setLocationName(project.locationName || '');
-      setLatitude(project.latitude || '');
-      setLongitude(project.longitude || '');
-      setSelectedManager(project.manager_id || '');
-      setRadius(project.radius || 100);
-      setProjectBudget(project.budget || '');
-    }
-  }, [project]);
-
-  useEffect(() => {
-    const loadManagers = async () => {
-      setLoadingManagers(true);
-      try {
-        const managersList = await fetchManagers();
-        setManagers(managersList);
-      } catch (error) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to load project managers." });
-      } finally {
-        setLoadingManagers(false);
-      }
-    };
-    loadManagers();
-  }, [toast]);
-
-  const handleMapClick = (e) => {
-    setLatitude(e.latLng.lat());
-    setLongitude(e.latLng.lng());
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!projectName || !locationName || !latitude || !longitude || !selectedManager) {
-      toast({ variant: "destructive", title: "Error", description: "Please fill all required fields." });
-      return;
-    }
-    const lat = parseFloat(latitude);
-    const lon = parseFloat(longitude);
-
-    if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-      toast({ variant: "destructive", title: "Invalid Coordinates", description: "Latitude must be between -90 and 90. Longitude must be between -180 and 180." });
-      return;
-    }
-
-    // Validate budget is a valid number if entered
-    const budgetValue = projectBudget === '' ? null : parseFloat(projectBudget);
-    if (projectBudget !== '' && isNaN(budgetValue)) {
-      toast({ variant: "destructive", title: "Invalid Budget", description: "Please enter a valid number for the budget." });
-      return;
-    }
-
-    try {
-      const updatedProject = {
-        ...project,
-        name: projectName,
-        description: projectDescription,
-        locationName,
-        latitude: lat,
-        longitude: lon,
-        manager_id: selectedManager,
-        radius,
-        budget: budgetValue
-      };
-      await onProjectUpdate(updatedProject);
-    } catch (error) {
-      console.error('Error updating project:', error);
-      toast({ variant: "destructive", title: "Error", description: "Failed to update project." });
-    }
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[525px] bg-gradient-to-br from-background/95 to-background/80 backdrop-blur-xl border border-primary/20 shadow-2xl rounded-xl overflow-hidden">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <DialogHeader className="space-y-3 pb-4 border-b border-primary/10">
-            <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-tertiary">
-              Edit Project
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground/80">
-              Modify the details below and save changes.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSubmit}>
-            <motion.div 
-              className="flex flex-col gap-4 py-6"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.1 }}
-            >
-              <div className="grid grid-cols-2 gap-4">
-                <motion.div 
-                  className="flex flex-col gap-1"
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  <Label htmlFor="editProjectName" className="text-muted-foreground">Name</Label>
-                  <Input 
-                    id="editProjectName" 
-                    value={projectName} 
-                    onChange={(e) => setProjectName(e.target.value)} 
-                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
-                  />
-                </motion.div>
-                <motion.div 
-                  className="flex flex-col gap-1"
-                  initial={{ x: 20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                >
-                  <Label htmlFor="editLocationName" className="text-muted-foreground">Location</Label>
-                  <Input 
-                    id="editLocationName" 
-                    value={locationName} 
-                    onChange={(e) => setLocationName(e.target.value)} 
-                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
-                  />
-                </motion.div>
-              </div>
-
-              <motion.div 
-                className="flex flex-col gap-1"
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.4 }}
-              >
-                <Label htmlFor="editProjectDescription" className="text-muted-foreground">Description</Label>
-                <Input 
-                  id="editProjectDescription" 
-                  value={projectDescription} 
-                  onChange={(e) => setProjectDescription(e.target.value)} 
-                  className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
-                />
-              </motion.div>
-
-              <motion.div 
-                className="flex flex-col gap-1"
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.45 }}
-              >
-                <Label htmlFor="editProjectBudget" className="text-muted-foreground">Budget (USD)</Label>
-                <Input 
-                  id="editProjectBudget" 
-                  type="number" 
-                  step="0.01" 
-                  value={projectBudget} 
-                  onChange={(e) => setProjectBudget(e.target.value)} 
-                  className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
-                  placeholder="e.g., 100000.00" 
-                />
-              </motion.div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <motion.div 
-                  className="flex flex-col gap-1"
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.5 }}
-                >
-                  <Label htmlFor="editLatitude" className="text-muted-foreground">Latitude</Label>
-                  <Input 
-                    id="editLatitude" 
-                    type="number" 
-                    step="any" 
-                    value={latitude} 
-                    onChange={(e) => setLatitude(e.target.value)} 
-                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
-                  />
-                </motion.div>
-                <motion.div 
-                  className="flex flex-col gap-1"
-                  initial={{ x: 20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.6 }}
-                >
-                  <Label htmlFor="editLongitude" className="text-muted-foreground">Longitude</Label>
-                  <Input 
-                    id="editLongitude" 
-                    type="number" 
-                    step="any" 
-                    value={longitude} 
-                    onChange={(e) => setLongitude(e.target.value)} 
-                    className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
-                  />
-                </motion.div>
-              </div>
-
-              <motion.div 
-                className="flex flex-col gap-1"
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.7 }}
-              >
-                <Label htmlFor="editManager" className="text-muted-foreground">Manager</Label>
-                {loadingManagers ? (
-                  <div className="h-10 bg-background/50 border border-primary/20 rounded-md flex items-center justify-center">
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      className="w-5 h-5 border-2 border-primary/50 border-t-transparent rounded-full"
-                    />
-                  </div>
-                ) : (
                   <select
-                    id="editManager"
+                    id="manager" 
                     value={selectedManager}
                     onChange={(e) => setSelectedManager(e.target.value)}
                     className="bg-background/50 border-primary/20 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-200 p-2 rounded-md"
@@ -615,27 +454,12 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
                   zoom={12}
                   onClick={handleMapClick}
                   mapId="5795a66c547e6becbb38a780"
+                  onLoad={(map) => {
+                    mapRef.current = map;
+                    console.log('Map loaded. mapRef.current set.', mapRef.current);
+                  }}
                 >
-                  {latitude && longitude && (
-                    <>
-                      <Marker position={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }} />
-                      <Circle
-                        center={{ lat: parseFloat(latitude), lng: parseFloat(longitude) }}
-                        radius={radius}
-                        options={{
-                          fillColor: '#007bff',
-                          fillOpacity: 0.2,
-                          strokeColor: '#007bff',
-                          strokeOpacity: 0.6,
-                          strokeWeight: 2,
-                          clickable: false,
-                          draggable: false,
-                          editable: false,
-                          visible: true,
-                        }}
-                      />
-                    </>
-                  )}
+                  {/* Marker and Circle are now managed by the useEffect hook */}
                 </Maps>
               </motion.div>
             </motion.div>
@@ -659,7 +483,7 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
                   type="submit" 
                   className="flex-1 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white transition-all duration-200"
                 >
-                  Save Changes
+                  {isEditMode ? 'Save Changes' : 'Create Project'}
                 </Button>
               </motion.div>
             </DialogFooter>
@@ -673,7 +497,6 @@ const EditProjectModal = ({ isOpen, setIsOpen, project, onProjectUpdate }) => {
 export default function AdminProjectManagementPage() {
   const { projects, addProject, updateProject, deleteProject } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState(null);
@@ -699,53 +522,29 @@ export default function AdminProjectManagementPage() {
     loadManagers();
   }, [toast]);
 
-  const handleProjectCreate = async (newProject) => {
+  const handleProjectSubmit = async (projectData) => {
     try {
-      const createdProject = await addProject(newProject);
+      if (projectToEdit) {
+        // Update existing project
+        const updated = await updateProject(projectData);
+        setLocalProjects(prev => 
+          prev.map(p => p.id === projectData.id ? {
+            ...p,
+            ...updated,
+            manager_id: projectData.manager_id,
+            manager: managers.find(m => m.id === projectData.manager_id)?.name
+          } : p)
+        );
+      } else {
+        // Create new project
+        const createdProject = await addProject(projectData);
       setLocalProjects(prev => [...prev, createdProject]);
-      setIsModalOpen(false);
-      toast({ title: "Success", description: "Project created successfully." });
-    } catch (error) {
-      console.error('Error creating project:', error);
-      toast({ variant: "destructive", title: "Error", description: "Failed to create project." });
-    }
-  };
-
-  const handleProjectUpdate = async (updatedProject) => {
-    try {
-      // First, get the manager's name from the managers list
-      const manager = managers.find(m => m.id === updatedProject.manager_id);
-      if (!manager) {
-        toast({ variant: "destructive", title: "Error", description: "Selected manager not found." });
-        return;
       }
-
-      // Prepare the project data with the manager information
-      const projectData = {
-        ...updatedProject,
-        manager: manager.name // Include the manager's name
-      };
-
-      // Call the update service
-      const result = await updateProject(projectData);
-      
-      // Update the local state with the new data
-      setLocalProjects(prev => 
-        prev.map(project => 
-          project.id === updatedProject.id ? {
-            ...project,
-            ...result,
-            manager_id: updatedProject.manager_id,
-            manager: manager.name
-          } : project
-        )
-      );
-
-      setIsEditModalOpen(false);
-      toast({ title: "Success", description: "Project updated successfully." });
+      setProjectToEdit(null);
+      setIsModalOpen(false);
     } catch (error) {
-      console.error('Error updating project:', error);
-      toast({ variant: "destructive", title: "Error", description: "Failed to update project." });
+      console.error('Error submitting project:', error);
+      throw error;
     }
   };
 
@@ -769,7 +568,7 @@ export default function AdminProjectManagementPage() {
 
   const handleEditClick = (project) => {
     setProjectToEdit(project);
-    setIsEditModalOpen(true);
+    setIsModalOpen(true);
   };
 
   const handleProjectClick = (project) => {
@@ -789,22 +588,19 @@ export default function AdminProjectManagementPage() {
         <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-gray-600">
           Project Management (Admin)
         </h1>
-        <Button onClick={() => setIsModalOpen(true)} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+        <Button onClick={() => {
+          setProjectToEdit(null);
+          setIsModalOpen(true);
+        }} className="bg-accent hover:bg-accent/90 text-accent-foreground">
           <PlusCircle size={18} className="mr-2" /> Create New Project
         </Button>
       </motion.div>
 
-      <CreateProjectModal 
+      <ProjectFormModal 
         isOpen={isModalOpen} 
         setIsOpen={setIsModalOpen} 
-        onProjectCreate={handleProjectCreate} 
-      />
-      
-      <EditProjectModal 
-        isOpen={isEditModalOpen} 
-        setIsOpen={setIsEditModalOpen} 
         project={projectToEdit} 
-        onProjectUpdate={handleProjectUpdate} 
+        onProjectSubmit={handleProjectSubmit}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

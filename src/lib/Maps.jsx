@@ -8,7 +8,7 @@ const defaultContainerStyle = {
   height: '100%',
 };
 
-const libraries = ["places"];
+const libraries = ["places", "geometry"];
 
 export default function Maps({
   center = { lat: 4.8133, lng: -75.6967 },
