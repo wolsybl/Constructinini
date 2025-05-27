@@ -223,7 +223,8 @@ export default function ResourceRequestsPage() {
         }
 
         // Update status of associated resource_request_items
-        const newItemStatus = newStatus === 'rejected' ? 'rejected' : 'approved';
+        // For both 'approved' and 'completed' status, items should be marked as 'approved'
+        const newItemStatus = 'approved';
         console.log('Updating items status:', {
           requestId,
           newItemStatus,
@@ -245,6 +246,28 @@ export default function ResourceRequestsPage() {
           return;
         }
         console.log('Items updated successfully');
+      } else if (newStatus === 'rejected') {
+        // Update status of associated resource_request_items to rejected
+        console.log('Updating items status to rejected:', {
+          requestId,
+          itemsCount: requestToUpdate.resource_request_items?.length
+        });
+
+        const { error: updateItemsError } = await supabase
+          .from('resource_request_items')
+          .update({ status: 'rejected' })
+          .eq('request_id', requestId);
+
+        if (updateItemsError) {
+          console.error('Items update failed:', updateItemsError);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: `Failed to update item statuses for request ${requestId}.`
+          });
+          return;
+        }
+        console.log('Items updated to rejected successfully');
       }
 
       // Update the main request status

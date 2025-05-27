@@ -85,6 +85,41 @@ export default function AdminDashboardPage() {
 
       const oldStatus = requestToUpdate.status;
 
+      // If approving or completing the request, update item statuses
+      if (newStatus === 'approved' || newStatus === 'completed') {
+        // Update status of associated resource_request_items to approved
+        const { error: updateItemsError } = await supabase
+          .from('resource_request_items')
+          .update({ status: 'approved' })
+          .eq('request_id', requestId);
+
+        if (updateItemsError) {
+          console.error('Items update failed:', updateItemsError);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: `Failed to update item statuses for request ${requestId}.`
+          });
+          return;
+        }
+      } else if (newStatus === 'rejected') {
+        // Update status of associated resource_request_items to rejected
+        const { error: updateItemsError } = await supabase
+          .from('resource_request_items')
+          .update({ status: 'rejected' })
+          .eq('request_id', requestId);
+
+        if (updateItemsError) {
+          console.error('Items update failed:', updateItemsError);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: `Failed to update item statuses for request ${requestId}.`
+          });
+          return;
+        }
+      }
+
       // Update the main request status in the database
       const { error } = await supabase
         .from('resource_requests')
@@ -96,7 +131,14 @@ export default function AdminDashboardPage() {
       // Update local state
       setRequests(requests.map(request => 
         request.id === requestId 
-          ? { ...request, status: newStatus }
+          ? {
+              ...request,
+              status: newStatus,
+              resource_request_items: request.resource_request_items.map(item => ({
+                ...item,
+                status: newStatus === 'rejected' ? 'rejected' : 'approved'
+              }))
+            }
           : request
       ));
 
