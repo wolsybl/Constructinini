@@ -215,7 +215,7 @@ export default function ManagerPendingTasksPage() {
     <div className="container mx-auto py-8 px-4 md:px-6">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary">
+          <h1 className="text-3xl font-bold bg-clip-text bg-gradient-to-r from-primary to-tertiary">
             Pending Tasks for Approval
           </h1>
           <p className="text-muted-foreground mt-1">Review and approve tasks completed by your workers.</p>

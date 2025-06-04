@@ -217,7 +217,7 @@ export default function UserManagementPage() {
         transition={{ duration: 0.5 }}
         className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4"
       >
-        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary">
+        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-gray-600">
           User Management
         </h1>
         <Button onClick={() => setIsModalOpen(true)} className="bg-accent hover:bg-accent/90 text-accent-foreground">

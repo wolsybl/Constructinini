@@ -106,7 +106,7 @@ export default function ProjectManagerDashboardPage() {
   const managementLinks = [
     { title: 'Manage My Projects', path: '/project_manager/projects', icon: <Building className="mr-2 h-5 w-5" /> },
     { title: 'Manage Workers', path: '/project_manager/workers', icon: <Users2 className="mr-2 h-5 w-5" /> },
-    { title: 'View Tasks', path: '/project_manager/pending-tasks', icon: <ListChecks className="mr-2 h-5 w-5" /> },
+    { title: 'Tasks For Approval', path: '/project_manager/pending-tasks', icon: <ListChecks className="mr-2 h-5 w-5" /> },
   ];
 
   return (

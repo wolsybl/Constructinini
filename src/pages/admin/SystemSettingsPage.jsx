@@ -142,7 +142,7 @@ export default function SystemSettingsPage() {
         className="w-full max-w-2xl mb-8"
       >
         <h1 className="text-4xl font-extrabold text-center bg-clip-text text-transparent bg-gradient-to-r from-primary to-tertiary mb-2">
-          System Settings
+          Export Data System
         </h1>
         <p className="text-center text-muted-foreground text-lg mb-6">
           Export and review worker attendance and work hours.

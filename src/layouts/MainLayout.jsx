@@ -47,7 +47,7 @@ export default function MainLayout({ children }) {
       { path: '/admin/users', label: 'Users', icon: <Users size={20} /> },
       { path: '/admin/projects', label: 'Projects', icon: <Building size={20} /> },
       { path: '/admin/resource-requests', label: 'Resource Requests', icon: <Package size={20} /> },
-      { path: '/admin/settings', label: 'Settings', icon: <Settings size={20} /> },
+      { path: '/admin/settings', label: 'Export Data', icon: <Settings size={20} /> },
     ];
   };
 
