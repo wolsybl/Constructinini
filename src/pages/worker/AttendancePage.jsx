@@ -73,7 +73,7 @@ export default function AttendancePage() {
     }
 
     try {
-      // Stop any existing stream
+      // Detener cualquier stream existente
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -81,7 +81,9 @@ export default function AttendancePage() {
       const constraints = {
         video: {
           facingMode: facingMode,
-          ...(selectedCamera && { deviceId: { exact: selectedCamera } })
+          ...(selectedCamera && { deviceId: { exact: selectedCamera } }),
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         }
       };
 
@@ -90,7 +92,13 @@ export default function AttendancePage() {
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        
+        // Esperar a que el video esté listo
+        await new Promise((resolve) => {
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current.play().then(resolve).catch(console.error);
+          };
+        });
       }
 
       setIsCameraActive(true);
@@ -131,37 +139,78 @@ export default function AttendancePage() {
   };
 
   const takePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
+    if (!videoRef.current || !canvasRef.current) {
+      toast({
+        variant: "destructive",
+        title: "Camera Error",
+        description: "Camera or canvas not initialized properly."
+      });
+      return;
+    }
+
+    try {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       
-      // Set canvas dimensions to match video
+      // Asegurarse de que el video esté reproduciendo
+      if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+        toast({
+          variant: "destructive",
+          title: "Camera Error",
+          description: "Please wait for the camera to be ready."
+        });
+        return;
+      }
+
+      // Configurar dimensiones del canvas
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       
       const context = canvas.getContext('2d');
+      if (!context) {
+        throw new Error('Could not get canvas context');
+      }
+
+      // Limpiar el canvas
+      context.clearRect(0, 0, canvas.width, canvas.height);
       
-      // Flip the image horizontally if using front camera
+      // Aplicar transformación para la cámara frontal
       if (facingMode === 'user') {
         context.translate(canvas.width, 0);
         context.scale(-1, 1);
       }
       
+      // Dibujar el frame actual del video
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
-      // Reset transform
+      // Restaurar la transformación
       if (facingMode === 'user') {
         context.setTransform(1, 0, 0, 1, 0, 0);
       }
       
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      // Convertir a base64 con mejor calidad
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      
+      // Verificar que la imagen se generó correctamente
+      if (!dataUrl || dataUrl === 'data:,') {
+        throw new Error('Failed to capture image');
+      }
+
       setPhoto(dataUrl);
       
-      // Stop camera after taking photo
+      // Detener la cámara después de un breve retraso
       setTimeout(() => {
         stopCamera();
         setIsRetaking(false);
-      }, 300);
+      }, 500);
+
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      toast({
+        variant: "destructive",
+        title: "Photo Error",
+        description: error.message || "Failed to take photo. Please try again."
+      });
     }
   };
 
