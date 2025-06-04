@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Camera, MapPin, CheckCircle, XCircle, Loader2, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Camera, MapPin, CheckCircle, XCircle, Loader2, AlertTriangle, RotateCcw, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,6 +33,7 @@ export default function AttendancePage() {
   const [facingMode, setFacingMode] = useState('user'); // 'user' for front camera, 'environment' for back camera
   const [availableCameras, setAvailableCameras] = useState([]);
   const [selectedCamera, setSelectedCamera] = useState(null);
+  const [attendanceStatus, setAttendanceStatus] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -212,6 +213,33 @@ export default function AttendancePage() {
     }
   }, [facingMode, selectedCamera]);
 
+  // Función para verificar el estado actual de asistencia
+  const checkAttendanceStatus = async () => {
+    if (!user?.id || !assignedProject?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('project_id', assignedProject.id)
+        .is('check_out_time', null)
+        .order('check_in_time', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      setAttendanceStatus(data ? 'checked-in' : 'checked-out');
+    } catch (err) {
+      console.error('Error checking attendance status:', err);
+      setAttendanceStatus('error');
+    }
+  };
+
+  useEffect(() => {
+    checkAttendanceStatus();
+  }, [user?.id, assignedProject?.id]);
+
   const handleSubmitAttendance = async (type) => {
     if (!photo) {
       toast({ variant: "destructive", title: "Missing Photo", description: "Please take a photo for verification." });
@@ -258,6 +286,11 @@ export default function AttendancePage() {
 
       let attendanceRecord;
       if (type === 'in') {
+        // Verificar si ya hay un check-in activo
+        if (attendanceStatus === 'checked-in') {
+          throw new Error('You are already checked in. Please check out first.');
+        }
+
         // Insertar nuevo registro de check-in
         const { data, error } = await supabase
           .from('attendance')
@@ -273,8 +306,9 @@ export default function AttendancePage() {
           .single();
         if (error) throw error;
         attendanceRecord = data;
+        setAttendanceStatus('checked-in');
       } else if (type === 'out') {
-        // Buscar el último registro de check-in sin check-out para este usuario y proyecto
+        // Buscar el último registro de check-in sin check-out
         const { data: lastAttendance, error: fetchError } = await supabase
           .from('attendance')
           .select('*')
@@ -284,12 +318,12 @@ export default function AttendancePage() {
           .order('check_in_time', { ascending: false })
           .limit(1)
           .single();
+
         if (fetchError || !lastAttendance) {
-          toast({ variant: "destructive", title: "No Check-In Found", description: "No open check-in found for check-out." });
-          setIsProcessing(false);
-          return;
+          throw new Error('No active check-in found. Please check in first.');
         }
-        // Actualizar ese registro con los datos de check-out
+
+        // Actualizar el registro con check-out
         const { error: updateError } = await supabase
           .from('attendance')
           .update({
@@ -301,6 +335,7 @@ export default function AttendancePage() {
           .eq('id', lastAttendance.id);
         if (updateError) throw updateError;
         attendanceRecord = { ...lastAttendance, check_out_time: new Date().toISOString() };
+        setAttendanceStatus('checked-out');
       }
 
       setIsProcessing(false);
@@ -359,13 +394,13 @@ export default function AttendancePage() {
             </div>
 
             {/* Camera Controls */}
-            <div className="flex justify-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-center gap-4">
               {!photo ? (
                 <>
                   <Button
                     onClick={startCamera}
                     disabled={isCameraActive}
-                    className="bg-primary hover:bg-primary/90"
+                    className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
                   >
                     <Camera className="w-4 h-4 mr-2" />
                     Start Camera
@@ -375,14 +410,14 @@ export default function AttendancePage() {
                       <Button
                         onClick={switchCamera}
                         variant="outline"
-                        className="hover:bg-secondary"
+                        className="hover:bg-secondary w-full sm:w-auto"
                       >
                         <RotateCcw className="w-4 h-4 mr-2" />
                         Switch Camera
                       </Button>
                       <Button
                         onClick={takePhoto}
-                        className="bg-accent hover:bg-accent/90"
+                        className="bg-accent hover:bg-accent/90 w-full sm:w-auto text-lg py-6"
                       >
                         Take Photo
                       </Button>
@@ -398,22 +433,37 @@ export default function AttendancePage() {
                       startCamera();
                     }}
                     variant="outline"
-                    className="hover:bg-secondary"
+                    className="hover:bg-secondary w-full sm:w-auto"
                   >
                     Retake Photo
                   </Button>
-                  <Button
-                    onClick={() => handleSubmitAttendance('in')}
-                    disabled={isProcessing || !isWithinRange}
-                    className="bg-primary hover:bg-primary/90"
-                  >
-                    {isProcessing ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                    )}
-                    Check In
-                  </Button>
+                  {attendanceStatus === 'checked-out' ? (
+                    <Button
+                      onClick={() => handleSubmitAttendance('in')}
+                      disabled={isProcessing || !isWithinRange}
+                      className="bg-primary hover:bg-primary/90 w-full sm:w-auto text-lg py-6"
+                    >
+                      {isProcessing ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                      )}
+                      Check In
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => handleSubmitAttendance('out')}
+                      disabled={isProcessing || !isWithinRange}
+                      className="bg-red-600 hover:bg-red-700 w-full sm:w-auto text-lg py-6"
+                    >
+                      {isProcessing ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <LogOut className="w-4 h-4 mr-2" />
+                      )}
+                      Check Out
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -443,6 +493,26 @@ export default function AttendancePage() {
                   {locationError}
                 </div>
               )}
+            </div>
+
+            {/* Attendance Status */}
+            <div className="mt-4 p-4 rounded-lg bg-secondary/30">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Current Status:</span>
+                {attendanceStatus === 'checked-in' ? (
+                  <span className="text-green-500 flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4" />
+                    Checked In
+                  </span>
+                ) : attendanceStatus === 'checked-out' ? (
+                  <span className="text-blue-500 flex items-center gap-1">
+                    <LogOut className="w-4 h-4" />
+                    Checked Out
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Not Checked In</span>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>
