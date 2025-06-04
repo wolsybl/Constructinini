@@ -333,13 +333,18 @@ export default function AttendancePage() {
     try {
       // Upload photo to Supabase Storage
       const file = await fetch(photo).then(res => res.blob());
-      const fileExt = photo.substring('data:image/'.length, photo.indexOf(';base64'));
+      // Extraer extensión correctamente
+      const matches = photo.match(/^data:image\/([a-zA-Z0-9+]+);base64,/);
+      const fileExt = matches ? matches[1] : 'jpg'; // fallback a jpg si no se detecta
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
       const filePath = `attendance-photos/${fileName}`;
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('attendance-photos')
-        .upload(fileName, file);
+        .upload(fileName, file, {
+          contentType: `image/${fileExt}`,
+          upsert: false
+        });
 
       if (uploadError) throw uploadError;
 
