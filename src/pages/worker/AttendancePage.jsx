@@ -274,14 +274,31 @@ export default function AttendancePage() {
         .eq('project_id', assignedProject.id)
         .is('check_out_time', null)
         .order('check_in_time', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (error && error.code !== 'PGRST116') throw error;
-      setAttendanceStatus(data ? 'checked-in' : 'checked-out');
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No se encontró ningún registro de check-in activo
+          setAttendanceStatus('checked-out');
+          return;
+        }
+        throw error;
+      }
+
+      // Si hay datos, el usuario está checked-in
+      if (data && data.length > 0) {
+        setAttendanceStatus('checked-in');
+      } else {
+        setAttendanceStatus('checked-out');
+      }
     } catch (err) {
       console.error('Error checking attendance status:', err);
       setAttendanceStatus('error');
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to check attendance status. Please try again."
+      });
     }
   };
 
