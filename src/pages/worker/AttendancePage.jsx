@@ -40,6 +40,7 @@ export default function AttendancePage() {
   const { toast } = useToast();
   const { user, getProjectById, projectAssignments } = useAuth();
   const [isRetaking, setIsRetaking] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
 
   const assignedProjectAssignment = projectAssignments.find(assignment => assignment.user_id === user?.id);
   const assignedProject = assignedProjectAssignment ? getProjectById(assignedProjectAssignment.project_id) : null;
@@ -78,6 +79,8 @@ export default function AttendancePage() {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
 
+      setIsVideoReady(false);
+
       const constraints = {
         video: {
           facingMode: facingMode,
@@ -92,13 +95,11 @@ export default function AttendancePage() {
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        
-        // Esperar a que el video esté listo
-        await new Promise((resolve) => {
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current.play().then(resolve).catch(console.error);
-          };
-        });
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current.play().then(() => {
+            setIsVideoReady(true);
+          }).catch(console.error);
+        };
       }
 
       setIsCameraActive(true);
@@ -120,6 +121,7 @@ export default function AttendancePage() {
         title: "Camera Error",
         description: errorMessage
       });
+      setIsVideoReady(false);
     }
   };
 
@@ -147,12 +149,17 @@ export default function AttendancePage() {
       });
       return;
     }
-
+    if (!isVideoReady) {
+      toast({
+        variant: "destructive",
+        title: "Camera Not Ready",
+        description: "Please wait for the camera to finish loading before taking a photo."
+      });
+      return;
+    }
     try {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      
-      // Asegurarse de que el video esté reproduciendo
       if (video.readyState !== video.HAVE_ENOUGH_DATA) {
         toast({
           variant: "destructive",
@@ -161,7 +168,7 @@ export default function AttendancePage() {
         });
         return;
       }
-
+      
       // Configurar dimensiones del canvas
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -444,13 +451,21 @@ export default function AttendancePage() {
             {/* Camera Preview */}
             <div className="relative aspect-video bg-black/10 rounded-lg overflow-hidden">
               {isCameraActive ? (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
+                <>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                  {!isVideoReady && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10">
+                      <Loader2 className="w-8 h-8 text-white animate-spin" />
+                      <span className="ml-2 text-white">Loading camera...</span>
+                    </div>
+                  )}
+                </>
               ) : photo ? (
                 <img
                   src={photo}
@@ -462,6 +477,7 @@ export default function AttendancePage() {
                   <Camera className="w-12 h-12 text-muted-foreground" />
                 </div>
               )}
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
             </div>
 
             {/* Camera Controls */}
@@ -489,6 +505,7 @@ export default function AttendancePage() {
                       <Button
                         onClick={takePhoto}
                         className="bg-accent hover:bg-accent/90 w-full sm:w-auto text-lg py-6"
+                        disabled={!isVideoReady}
                       >
                         Take Photo
                       </Button>
